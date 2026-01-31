@@ -1,7 +1,9 @@
-import { GameConfig, PlayerSide } from './types';
+import { GameConfig, PlayerSide, TankTypeName, TANK_TYPES } from './types';
 import { Tank } from './Tank';
 import { Bullet } from './Bullet';
 import { Terrain } from './Terrain';
+
+const RETICLE_MAX_DISTANCE = 150; // Max pixels from tank before reticle stops
 
 export class Renderer {
   private readonly ctx: CanvasRenderingContext2D;
@@ -35,8 +37,8 @@ export class Renderer {
     const halfW = this.config.tankWidth / 2;
     const halfH = this.config.tankHeight / 2;
 
-    // Tank body
-    const bodyColor = tank.side_ === PlayerSide.Left ? '#2563EB' : '#DC2626';
+    // Tank body - use tank type color
+    const bodyColor = tank.tankType.color;
     ctx.fillStyle = bodyColor;
     ctx.fillRect(x - halfW, y - halfH, this.config.tankWidth, this.config.tankHeight);
 
@@ -76,6 +78,13 @@ export class Renderer {
       ctx.closePath();
       ctx.fill();
     }
+
+    // Tank type label under the tank
+    ctx.fillStyle = '#FFF';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(tank.tankType.name, x, y + halfH + 16);
+    ctx.textAlign = 'start';
   }
 
   private renderAimReticle(tank: Tank): void {
@@ -85,30 +94,36 @@ export class Renderer {
     const turretEnd = tank.getTurretEnd();
     const velocity = tank.getFireVelocity();
 
-    // Draw trajectory preview dots
+    // Draw trajectory preview dots - BLACK for visibility, limited range
     const dt = 0.04;
     let px = turretEnd.x;
     let py = turretEnd.y;
     let vx = velocity.x;
     let vy = velocity.y;
 
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.fillStyle = '#000';
     for (let i = 0; i < 40; i++) {
       vy += this.config.gravity * dt;
       px += vx * dt;
       py += vy * dt;
 
+      // Limit reticle to close range from tank
+      const distFromTank = Math.sqrt(
+        (px - tank.position.x) ** 2 + (py - tank.position.y) ** 2
+      );
+      if (distFromTank > RETICLE_MAX_DISTANCE) break;
+
       if (py > this.terrain.getHeightAt(px) || px < 0 || px > this.config.canvasWidth) break;
 
       if (i % 2 === 0) {
         ctx.beginPath();
-        ctx.arc(px, py, 2, 0, Math.PI * 2);
+        ctx.arc(px, py, 2.5, 0, Math.PI * 2);
         ctx.fill();
       }
     }
 
     // Power bar
-    const barX = tank.side_ === PlayerSide.Left ? 20 : this.config.canvasWidth - 120;
+    const barX = tank.side === PlayerSide.Left ? 20 : this.config.canvasWidth - 120;
     const barY = this.config.canvasHeight - 30;
     const barWidth = 100;
     const barHeight = 12;
@@ -131,6 +146,15 @@ export class Renderer {
     ctx.fillStyle = '#FFF';
     ctx.font = '10px monospace';
     ctx.fillText('POWER', barX, barY - 3);
+
+    // Show cooldown status if applicable
+    if (!tank.canFire) {
+      ctx.fillStyle = '#FF4444';
+      ctx.font = 'bold 14px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('RELOADING...', tank.position.x, tank.position.y - 50);
+      ctx.textAlign = 'start';
+    }
   }
 
   private renderBullet(bullet: Bullet): void {
@@ -155,12 +179,12 @@ export class Renderer {
     tanks.forEach((tank, i) => {
       const hudX = i === 0 ? 20 : this.config.canvasWidth - 220;
       const label = i === 0 ? 'PLAYER 1' : 'PLAYER 2';
-      const color = tank.side_ === PlayerSide.Left ? '#2563EB' : '#DC2626';
+      const color = tank.tankType.color;
 
       // Label
       ctx.fillStyle = color;
       ctx.font = 'bold 14px monospace';
-      ctx.fillText(label, hudX, 25);
+      ctx.fillText(`${label} (${tank.tankType.name})`, hudX, 25);
 
       // Health bar background
       ctx.fillStyle = '#333';
@@ -190,6 +214,109 @@ export class Renderer {
       ctx.font = '11px monospace';
       ctx.fillText(`Angle: ${angleDeg}°`, hudX, 65);
     });
+  }
+
+  renderTankSelect(tankTypes: TankTypeName[], selectedIndex: number): void {
+    const ctx = this.ctx;
+    const { canvasWidth, canvasHeight } = this.config;
+
+    // Background
+    ctx.fillStyle = '#111';
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    // Title
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 36px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('SELECT YOUR TANK', canvasWidth / 2, 80);
+
+    // Tank options
+    const cardWidth = 240;
+    const cardHeight = 280;
+    const gap = 40;
+    const totalWidth = tankTypes.length * cardWidth + (tankTypes.length - 1) * gap;
+    const startX = (canvasWidth - totalWidth) / 2;
+
+    tankTypes.forEach((typeName, i) => {
+      const typeConfig = TANK_TYPES[typeName];
+      const cardX = startX + i * (cardWidth + gap);
+      const cardY = 120;
+      const isSelected = i === selectedIndex;
+
+      // Card background
+      ctx.fillStyle = isSelected ? '#333' : '#1a1a1a';
+      ctx.fillRect(cardX, cardY, cardWidth, cardHeight);
+
+      // Selection border
+      if (isSelected) {
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(cardX, cardY, cardWidth, cardHeight);
+      } else {
+        ctx.strokeStyle = '#444';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(cardX, cardY, cardWidth, cardHeight);
+      }
+
+      // Tank preview (simple rectangle representation)
+      const previewX = cardX + cardWidth / 2;
+      const previewY = cardY + 60;
+      ctx.fillStyle = typeConfig.color;
+      ctx.fillRect(previewX - 30, previewY - 15, 60, 30);
+      ctx.beginPath();
+      ctx.ellipse(previewX, previewY - 15, 18, 10, 0, Math.PI, 0);
+      ctx.fill();
+
+      // Turret
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(previewX, previewY - 15);
+      ctx.lineTo(previewX + 25, previewY - 30);
+      ctx.stroke();
+
+      // Treads
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(previewX - 32, previewY + 9, 64, 6);
+
+      // Tank name
+      ctx.fillStyle = typeConfig.color;
+      ctx.font = 'bold 14px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(typeConfig.name, cardX + cardWidth / 2, cardY + 110);
+
+      // Description
+      ctx.fillStyle = '#CCC';
+      ctx.font = '12px monospace';
+      ctx.fillText(typeConfig.description, cardX + cardWidth / 2, cardY + 140);
+
+      // Stats
+      ctx.fillStyle = '#AAA';
+      ctx.font = '11px monospace';
+      const statsY = cardY + 170;
+      ctx.fillText(`Damage: ${typeConfig.damage}`, cardX + cardWidth / 2, statsY);
+      ctx.fillText(`Bullets: ${typeConfig.bulletsPerShot}`, cardX + cardWidth / 2, statsY + 20);
+      if (typeConfig.fireCooldownTurns > 1) {
+        ctx.fillStyle = '#FF6B6B';
+        ctx.fillText(`Fires every ${typeConfig.fireCooldownTurns} turns`, cardX + cardWidth / 2, statsY + 40);
+      } else {
+        ctx.fillText('Fires every turn', cardX + cardWidth / 2, statsY + 40);
+      }
+
+      if (typeConfig.bulletVelocityMultiplier !== 1.0) {
+        ctx.fillStyle = typeConfig.bulletVelocityMultiplier > 1 ? '#4ADE80' : '#FCA5A5';
+        const label = typeConfig.bulletVelocityMultiplier > 1 ? 'High velocity' : 'Low velocity';
+        ctx.fillText(label, cardX + cardWidth / 2, statsY + 60);
+      }
+    });
+
+    // Controls hint
+    ctx.fillStyle = '#888';
+    ctx.font = '14px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('A/D or Arrow Keys to select  |  Space/Enter to confirm', canvasWidth / 2, canvasHeight - 40);
+    ctx.textAlign = 'start';
   }
 
   renderGameOver(winnerIndex: number): void {

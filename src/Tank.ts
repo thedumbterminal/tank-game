@@ -1,4 +1,4 @@
-import { Vector2, GameConfig, PlayerSide } from './types';
+import { Vector2, GameConfig, PlayerSide, TankTypeConfig, TankTypeName, TANK_TYPES } from './types';
 
 export class Tank {
   public position: Vector2;
@@ -6,15 +6,18 @@ export class Tank {
   public angle: number;
   public power: number;
   public alive: boolean;
+  public fireCooldownRemaining: number = 0;
 
-  private readonly side: PlayerSide;
+  private readonly _side: PlayerSide;
   private readonly config: GameConfig;
+  private readonly _tankType: TankTypeConfig;
   private readonly minX: number;
   private readonly maxX: number;
 
-  constructor(side: PlayerSide, config: GameConfig) {
-    this.side = side;
+  constructor(side: PlayerSide, config: GameConfig, tankType: TankTypeName = TankTypeName.Abrams) {
+    this._side = side;
     this.config = config;
+    this._tankType = TANK_TYPES[tankType];
     this.health = config.tankHealth;
     this.alive = true;
 
@@ -24,7 +27,7 @@ export class Tank {
 
     this.position = {
       x: startX,
-      y: config.groundLevel - config.tankHeight / 2, // will be overridden by snapToTerrain
+      y: config.groundLevel - config.tankHeight / 2,
     };
 
     // Default angle: left tank aims right-up, right tank aims left-up
@@ -35,8 +38,26 @@ export class Tank {
     this.maxX = config.canvasWidth - config.tankWidth / 2;
   }
 
-  get side_(): PlayerSide {
-    return this.side;
+  get side(): PlayerSide {
+    return this._side;
+  }
+
+  get tankType(): TankTypeConfig {
+    return this._tankType;
+  }
+
+  get canFire(): boolean {
+    return this.fireCooldownRemaining <= 0;
+  }
+
+  onTurnStart(): void {
+    if (this.fireCooldownRemaining > 0) {
+      this.fireCooldownRemaining--;
+    }
+  }
+
+  onFired(): void {
+    this.fireCooldownRemaining = this._tankType.fireCooldownTurns - 1;
   }
 
   move(direction: number, deltaTime: number): void {
@@ -80,9 +101,10 @@ export class Tank {
   }
 
   getFireVelocity(): Vector2 {
+    const velMult = this._tankType.bulletVelocityMultiplier;
     return {
-      x: Math.cos(this.angle) * this.power,
-      y: -Math.sin(this.angle) * this.power,
+      x: Math.cos(this.angle) * this.power * velMult,
+      y: -Math.sin(this.angle) * this.power * velMult,
     };
   }
 }

@@ -21,9 +21,60 @@ export interface GameConfig {
 }
 
 export enum GameState {
+  TankSelect = 'tankselect',
   Playing = 'playing',
   GameOver = 'gameover',
 }
+
+export enum TankTypeName {
+  GauAvenger = 'M48 GAU-AVENGER',
+  Abrams = 'ABRAMS',
+  Maus = 'MAUS',
+}
+
+export interface TankTypeConfig {
+  name: TankTypeName;
+  description: string;
+  damage: number;
+  bulletsPerShot: number;
+  fireCooldownTurns: number;
+  bulletSpread: number; // radians of spread for multi-bullet
+  bulletVelocityMultiplier: number;
+  color: string;
+}
+
+export const TANK_TYPES: Record<TankTypeName, TankTypeConfig> = {
+  [TankTypeName.GauAvenger]: {
+    name: TankTypeName.GauAvenger,
+    description: '10 bullets per shot, 5 dmg each',
+    damage: 5,
+    bulletsPerShot: 10,
+    fireCooldownTurns: 1,
+    bulletSpread: 0.15,
+    bulletVelocityMultiplier: 1.3,
+    color: '#2563EB',
+  },
+  [TankTypeName.Abrams]: {
+    name: TankTypeName.Abrams,
+    description: '1 bullet per shot, 35 dmg',
+    damage: 35,
+    bulletsPerShot: 1,
+    fireCooldownTurns: 1,
+    bulletSpread: 0,
+    bulletVelocityMultiplier: 1.0,
+    color: '#16A34A',
+  },
+  [TankTypeName.Maus]: {
+    name: TankTypeName.Maus,
+    description: '1 bullet per shot, 50 dmg, fires every 2 turns',
+    damage: 50,
+    bulletsPerShot: 1,
+    fireCooldownTurns: 2,
+    bulletSpread: 0,
+    bulletVelocityMultiplier: 0.9,
+    color: '#7C3AED',
+  },
+};
 
 export enum PlayerSide {
   Left = 'left',

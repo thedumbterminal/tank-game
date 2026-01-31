@@ -1,4 +1,4 @@
-import { GameConfig, GameState, PlayerSide, DEFAULT_CONFIG } from './types';
+import { GameConfig, GameState, PlayerSide, TankTypeName, TANK_TYPES, DEFAULT_CONFIG } from './types';
 import { Tank } from './Tank';
 import { Bullet } from './Bullet';
 import { Terrain } from './Terrain';
@@ -16,13 +16,18 @@ export class Game {
   private terrain!: Terrain;
   private tanks: Tank[] = [];
   private bullets: Bullet[] = [];
-  private state: GameState = GameState.Playing;
+  private state: GameState = GameState.TankSelect;
   private activeTankIndex: number = 0;
   private winnerIndex: number = -1;
   private isBotGame: boolean = true;
   private lastTime: number = 0;
   private shotFired: boolean = false;
   private turnCooldown: number = 0;
+
+  // Tank selection state
+  private readonly tankTypeOptions = [TankTypeName.GauAvenger, TankTypeName.Abrams, TankTypeName.Maus];
+  private selectedTankIndex: number = 1; // Default to Abrams
+  private playerTankType: TankTypeName = TankTypeName.Abrams;
 
   constructor(canvas: HTMLCanvasElement, config: GameConfig = DEFAULT_CONFIG) {
     this.config = config;
@@ -36,19 +41,22 @@ export class Game {
     this.input = new InputHandler();
     this.botController = new BotController(config);
 
-    this.init();
+    this.terrain = new Terrain(this.config);
+    this.renderer = new Renderer(this.ctx, this.config, this.terrain);
   }
 
-  private init(): void {
+  private initMatch(): void {
     this.terrain = new Terrain(this.config);
     this.renderer = new Renderer(this.ctx, this.config, this.terrain);
 
+    // Bot picks a random tank type
+    const botType = this.tankTypeOptions[Math.floor(Math.random() * this.tankTypeOptions.length)];
+
     this.tanks = [
-      new Tank(PlayerSide.Left, this.config),
-      new Tank(PlayerSide.Right, this.config),
+      new Tank(PlayerSide.Left, this.config, this.playerTankType),
+      new Tank(PlayerSide.Right, this.config, botType),
     ];
 
-    // Snap tanks to terrain height at their starting positions
     for (const tank of this.tanks) {
       tank.snapToTerrain(this.terrain.getHeightAt(tank.position.x));
     }
@@ -59,6 +67,9 @@ export class Game {
     this.winnerIndex = -1;
     this.shotFired = false;
     this.turnCooldown = 0;
+
+    // Notify first tank of turn start
+    this.tanks[0].onTurnStart();
   }
 
   start(): void {
@@ -78,9 +89,15 @@ export class Game {
   }
 
   private update(deltaTime: number): void {
+    if (this.state === GameState.TankSelect) {
+      this.updateTankSelect();
+      return;
+    }
+
     if (this.state === GameState.GameOver) {
       if (this.input.wasPressed('r') || this.input.wasPressed('R')) {
-        this.init();
+        this.state = GameState.TankSelect;
+        this.selectedTankIndex = 1;
       }
       return;
     }
@@ -106,6 +123,11 @@ export class Game {
 
     // Bot turn
     if (this.isBotGame && this.activeTankIndex === 1) {
+      if (!activeTank.canFire) {
+        // MAUS cooldown: skip turn
+        this.switchTurn();
+        return;
+      }
       const shouldFire = this.botController.update(
         activeTank,
         this.tanks[0],
@@ -119,6 +141,19 @@ export class Game {
 
     // Player controls
     this.handlePlayerInput(activeTank, deltaTime);
+  }
+
+  private updateTankSelect(): void {
+    if (this.input.wasPressed('a') || this.input.wasPressed('A') || this.input.wasPressed('ArrowLeft')) {
+      this.selectedTankIndex = (this.selectedTankIndex - 1 + this.tankTypeOptions.length) % this.tankTypeOptions.length;
+    }
+    if (this.input.wasPressed('d') || this.input.wasPressed('D') || this.input.wasPressed('ArrowRight')) {
+      this.selectedTankIndex = (this.selectedTankIndex + 1) % this.tankTypeOptions.length;
+    }
+    if (this.input.wasPressed('Enter') || this.input.wasPressed(' ')) {
+      this.playerTankType = this.tankTypeOptions[this.selectedTankIndex];
+      this.initMatch();
+    }
   }
 
   private handlePlayerInput(tank: Tank, deltaTime: number): void {
@@ -151,15 +186,41 @@ export class Game {
     }
 
     // Fire
-    if (this.input.wasPressed(' ') && !this.shotFired) {
+    if (this.input.wasPressed(' ') && !this.shotFired && tank.canFire) {
       this.fire(tank, this.activeTankIndex);
     }
   }
 
   private fire(tank: Tank, ownerIndex: number): void {
     const turretEnd = tank.getTurretEnd();
-    const velocity = tank.getFireVelocity();
-    this.bullets.push(new Bullet(turretEnd, velocity, ownerIndex, this.config));
+    const baseVelocity = tank.getFireVelocity();
+    const bulletsPerShot = tank.tankType.bulletsPerShot;
+    const spread = tank.tankType.bulletSpread;
+
+    for (let i = 0; i < bulletsPerShot; i++) {
+      let vx = baseVelocity.x;
+      let vy = baseVelocity.y;
+
+      if (bulletsPerShot > 1) {
+        // Spread bullets in a fan pattern
+        const spreadAngle = (i / (bulletsPerShot - 1) - 0.5) * spread;
+        const cos = Math.cos(spreadAngle);
+        const sin = Math.sin(spreadAngle);
+        const newVx = vx * cos - vy * sin;
+        const newVy = vx * sin + vy * cos;
+        vx = newVx;
+        vy = newVy;
+      }
+
+      this.bullets.push(new Bullet(
+        { x: turretEnd.x, y: turretEnd.y },
+        { x: vx, y: vy },
+        ownerIndex,
+        this.config
+      ));
+    }
+
+    tank.onFired();
     this.shotFired = true;
     this.turnCooldown = 0.3;
   }
@@ -175,7 +236,7 @@ export class Game {
       if (!bullet.active) continue;
 
       for (let i = 0; i < this.tanks.length; i++) {
-        if (i === bullet.owner) continue; // Don't hit self
+        if (i === bullet.owner) continue;
         const tank = this.tanks[i];
         if (!tank.alive) continue;
 
@@ -184,7 +245,9 @@ export class Game {
         const hitRadius = this.config.tankWidth / 2;
 
         if (Math.abs(dx) < hitRadius && Math.abs(dy) < this.config.tankHeight) {
-          tank.takeDamage(34);
+          // Use damage from the firing tank's type
+          const firingTank = this.tanks[bullet.owner];
+          tank.takeDamage(firingTank.tankType.damage);
           bullet.active = false;
 
           if (!tank.alive) {
@@ -202,11 +265,17 @@ export class Game {
 
   private switchTurn(): void {
     this.activeTankIndex = this.activeTankIndex === 0 ? 1 : 0;
+    this.tanks[this.activeTankIndex].onTurnStart();
     this.shotFired = false;
     this.turnCooldown = 0;
   }
 
   private render(): void {
+    if (this.state === GameState.TankSelect) {
+      this.renderer.renderTankSelect(this.tankTypeOptions, this.selectedTankIndex);
+      return;
+    }
+
     this.renderer.renderScene(this.tanks, this.bullets, this.activeTankIndex);
 
     if (this.state === GameState.GameOver) {
