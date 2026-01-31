@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tank Game</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      background: #111;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: monospace;
+      color: #fff;
+    }
+    canvas {
+      border: 2px solid #333;
+      display: block;
+    }
+    .controls {
+      margin-top: 16px;
+      text-align: center;
+      color: #888;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .controls kbd {
+      background: #333;
+      padding: 2px 6px;
+      border-radius: 3px;
+      border: 1px solid #555;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <div class="controls">
+    <kbd>A</kbd>/<kbd>D</kbd> or <kbd>←</kbd>/<kbd>→</kbd> Move &nbsp;|&nbsp;
+    <kbd>W</kbd>/<kbd>S</kbd> or <kbd>↑</kbd>/<kbd>↓</kbd> Aim &nbsp;|&nbsp;
+    <kbd>Q</kbd>/<kbd>E</kbd> Power &nbsp;|&nbsp;
+    <kbd>Space</kbd> Fire &nbsp;|&nbsp;
+    <kbd>R</kbd> Restart
+  </div>
+  <script type="module" src="/src/index.ts"></script>
+</body>
+</html>
