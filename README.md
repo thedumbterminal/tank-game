@@ -1,5 +1,11 @@
 # Tank Game
 
+Created completely using the BMAD Game Dev Studio technique:
+
+https://github.com/bmad-code-org/bmad-module-game-dev-studio
+
+AI input is located in the [input](input/) directory.
+
 ## Install
 
 ```
