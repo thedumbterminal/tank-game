@@ -26,3 +26,7 @@ AMBRAMS
 MAUS
 Can only fire once 2 turns
 50 damage per bullit
+
+## Deployment
+* The game will be hosted on github pages at the following base URL path: /tank-game
+* The local dev server will serve the game from the base URL path: /
