@@ -22,3 +22,11 @@ npm run dev
 Browse to:
 
 http://localhost:5173/
+
+## Development
+
+In claude (or using claude in your editor)
+
+```
+/bmad-agent-gds-game-dev
+```

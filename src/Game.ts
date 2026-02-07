@@ -1,10 +1,17 @@
-import { GameConfig, GameState, PlayerSide, TankTypeName, TANK_TYPES, DEFAULT_CONFIG } from './types';
+import { GameConfig, GameState, PlayerSide, TankTypeName, Vector2, DEFAULT_CONFIG } from './types';
 import { Tank } from './Tank';
 import { Bullet } from './Bullet';
 import { Terrain } from './Terrain';
 import { Renderer } from './Renderer';
 import { InputHandler } from './InputHandler';
 import { BotController } from './BotController';
+
+interface QueuedBullet {
+  position: Vector2;
+  velocity: Vector2;
+  ownerIndex: number;
+  delay: number; // seconds until this bullet fires
+}
 
 export class Game {
   private readonly config: GameConfig;
@@ -16,6 +23,7 @@ export class Game {
   private terrain!: Terrain;
   private tanks: Tank[] = [];
   private bullets: Bullet[] = [];
+  private bulletQueue: QueuedBullet[] = []; // For sequential firing
   private state: GameState = GameState.TankSelect;
   private activeTankIndex: number = 0;
   private winnerIndex: number = -1;
@@ -62,6 +70,7 @@ export class Game {
     }
 
     this.bullets = [];
+    this.bulletQueue = [];
     this.state = GameState.Playing;
     this.activeTankIndex = 0;
     this.winnerIndex = -1;
@@ -102,6 +111,7 @@ export class Game {
       return;
     }
 
+    this.updateBulletQueue(deltaTime);
     this.updateBullets(deltaTime);
     this.checkCollisions();
 
@@ -196,6 +206,7 @@ export class Game {
     const baseVelocity = tank.getFireVelocity();
     const bulletsPerShot = tank.tankType.bulletsPerShot;
     const spread = tank.tankType.bulletSpread;
+    const fireDelay = tank.tankType.bulletFireDelay;
 
     for (let i = 0; i < bulletsPerShot; i++) {
       let vx = baseVelocity.x;
@@ -212,12 +223,23 @@ export class Game {
         vy = newVy;
       }
 
-      this.bullets.push(new Bullet(
-        { x: turretEnd.x, y: turretEnd.y },
-        { x: vx, y: vy },
-        ownerIndex,
-        this.config
-      ));
+      if (fireDelay > 0 && i > 0) {
+        // Queue bullet for delayed firing (sequential)
+        this.bulletQueue.push({
+          position: { x: turretEnd.x, y: turretEnd.y },
+          velocity: { x: vx, y: vy },
+          ownerIndex,
+          delay: i * fireDelay,
+        });
+      } else {
+        // Fire immediately
+        this.bullets.push(new Bullet(
+          { x: turretEnd.x, y: turretEnd.y },
+          { x: vx, y: vy },
+          ownerIndex,
+          this.config
+        ));
+      }
     }
 
     tank.onFired();
@@ -225,9 +247,41 @@ export class Game {
     this.turnCooldown = 0.3;
   }
 
+  private updateBulletQueue(deltaTime: number): void {
+    const toFire: QueuedBullet[] = [];
+
+    for (const queued of this.bulletQueue) {
+      queued.delay -= deltaTime;
+      if (queued.delay <= 0) {
+        toFire.push(queued);
+      }
+    }
+
+    // Remove fired bullets from queue
+    this.bulletQueue = this.bulletQueue.filter((q) => q.delay > 0);
+
+    // Spawn the bullets
+    for (const q of toFire) {
+      this.bullets.push(new Bullet(
+        q.position,
+        q.velocity,
+        q.ownerIndex,
+        this.config
+      ));
+    }
+  }
+
   private updateBullets(deltaTime: number): void {
     const getHeight = (x: number) => this.terrain.getHeightAt(x);
     this.bullets.forEach((bullet) => bullet.update(deltaTime, getHeight));
+
+    // Create craters for bullets that hit terrain
+    for (const bullet of this.bullets) {
+      if (!bullet.active && bullet.hitTerrain) {
+        this.terrain.createCrater(bullet.position.x);
+      }
+    }
+
     this.bullets = this.bullets.filter((b) => b.active);
   }
 
@@ -260,7 +314,7 @@ export class Game {
   }
 
   private hasBulletsInFlight(): boolean {
-    return this.bullets.some((b) => b.active);
+    return this.bullets.some((b) => b.active) || this.bulletQueue.length > 0;
   }
 
   private switchTurn(): void {

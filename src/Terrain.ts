@@ -61,6 +61,23 @@ export class Terrain {
     return this.heightMap[ix];
   }
 
+  createCrater(centerX: number, radius: number = 15, depth: number = 12): void {
+    const startX = Math.max(0, Math.floor(centerX - radius));
+    const endX = Math.min(this.heightMap.length - 1, Math.ceil(centerX + radius));
+
+    for (let x = startX; x <= endX; x++) {
+      const dist = Math.abs(x - centerX);
+      if (dist <= radius) {
+        // Parabolic crater shape
+        const craterDepth = depth * (1 - (dist / radius) ** 2);
+        this.heightMap[x] += craterDepth;
+
+        // Clamp to canvas bounds
+        this.heightMap[x] = Math.min(this.heightMap[x], this.config.canvasHeight - 5);
+      }
+    }
+  }
+
   render(ctx: CanvasRenderingContext2D): void {
     const { canvasWidth, canvasHeight } = this.config;
 

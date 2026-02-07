@@ -40,6 +40,7 @@ export interface TankTypeConfig {
   fireCooldownTurns: number;
   bulletSpread: number; // radians of spread for multi-bullet
   bulletVelocityMultiplier: number;
+  bulletFireDelay: number; // seconds between sequential bullets (0 = all at once)
   color: string;
 }
 
@@ -52,6 +53,7 @@ export const TANK_TYPES: Record<TankTypeName, TankTypeConfig> = {
     fireCooldownTurns: 1,
     bulletSpread: 0.15,
     bulletVelocityMultiplier: 1.3,
+    bulletFireDelay: 0.08, // 80ms between each bullet
     color: '#2563EB',
   },
   [TankTypeName.Abrams]: {
@@ -62,6 +64,7 @@ export const TANK_TYPES: Record<TankTypeName, TankTypeConfig> = {
     fireCooldownTurns: 1,
     bulletSpread: 0,
     bulletVelocityMultiplier: 1.0,
+    bulletFireDelay: 0,
     color: '#16A34A',
   },
   [TankTypeName.Maus]: {
@@ -72,6 +75,7 @@ export const TANK_TYPES: Record<TankTypeName, TankTypeConfig> = {
     fireCooldownTurns: 2,
     bulletSpread: 0,
     bulletVelocityMultiplier: 0.9,
+    bulletFireDelay: 0,
     color: '#7C3AED',
   },
 };

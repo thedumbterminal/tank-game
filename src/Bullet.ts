@@ -4,6 +4,7 @@ export class Bullet {
   public position: Vector2;
   public velocity: Vector2;
   public active: boolean;
+  public hitTerrain: boolean = false; // True if deactivated by terrain collision
 
   private readonly config: GameConfig;
   private readonly ownerIndex: number;
@@ -35,13 +36,18 @@ export class Bullet {
       ? getTerrainHeight(this.position.x)
       : this.config.groundLevel;
 
-    // Deactivate if out of bounds or hit terrain
+    // Deactivate if out of bounds
     if (
       this.position.x < -50 ||
-      this.position.x > this.config.canvasWidth + 50 ||
-      this.position.y > groundY
+      this.position.x > this.config.canvasWidth + 50
     ) {
       this.active = false;
+    }
+
+    // Hit terrain - mark for crater creation
+    if (this.position.y > groundY) {
+      this.active = false;
+      this.hitTerrain = true;
     }
   }
 
