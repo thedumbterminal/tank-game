@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+## [1.10.0] - 2026-02-08
+
+### Added
+
+- Movement lock after firing: tank cannot move for the remainder of its turn after shooting
+- CPU player now moves its tank each turn before aiming and firing (random direction, 0.3-0.7s movement phase)
+- BotController unit tests (4 tests covering movement phase, fuel, and aim transition)
+
+## [1.9.0] - 2026-02-08
+
+### Changed
+
+- Realistic tank rendering with detailed side-profile: tracked hull with road wheels, drive sprocket and idler, sloped armor hull with panel lines, rounded turret with commander's cupola, gun barrel with muzzle brake and mantlet
+- Tank selection screen uses same realistic tank visuals
+- Shared `drawTankBody` method ensures consistent look across game and menus
+
 ## [1.8.0] - 2026-02-08
 
 ### Added

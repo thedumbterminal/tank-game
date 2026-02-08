@@ -142,7 +142,8 @@ export class Game {
       const shouldFire = this.botController.update(
         activeTank,
         this.tanks[0],
-        deltaTime
+        deltaTime,
+        (x: number) => this.terrain.getHeightAt(x)
       );
       if (shouldFire && !this.shotFired) {
         this.fire(activeTank, this.activeTankIndex);
@@ -168,14 +169,16 @@ export class Game {
   }
 
   private handlePlayerInput(tank: Tank, deltaTime: number): void {
-    // Movement
-    if (this.input.isDown('a') || this.input.isDown('A') || this.input.isDown('ArrowLeft')) {
-      tank.move(-1, deltaTime);
-      tank.snapToTerrain(this.terrain.getHeightAt(tank.position.x));
-    }
-    if (this.input.isDown('d') || this.input.isDown('D') || this.input.isDown('ArrowRight')) {
-      tank.move(1, deltaTime);
-      tank.snapToTerrain(this.terrain.getHeightAt(tank.position.x));
+    // Movement - locked after firing
+    if (!this.shotFired) {
+      if (this.input.isDown('a') || this.input.isDown('A') || this.input.isDown('ArrowLeft')) {
+        tank.move(-1, deltaTime);
+        tank.snapToTerrain(this.terrain.getHeightAt(tank.position.x));
+      }
+      if (this.input.isDown('d') || this.input.isDown('D') || this.input.isDown('ArrowRight')) {
+        tank.move(1, deltaTime);
+        tank.snapToTerrain(this.terrain.getHeightAt(tank.position.x));
+      }
     }
 
     // Angle adjustment
@@ -330,6 +333,11 @@ export class Game {
     this.tanks[this.activeTankIndex].onTurnStart();
     this.shotFired = false;
     this.turnCooldown = 0;
+
+    // Notify bot controller when it's bot's turn
+    if (this.isBotGame && this.activeTankIndex === 1) {
+      this.botController.startTurn();
+    }
   }
 
   private render(): void {

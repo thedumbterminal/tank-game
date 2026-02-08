@@ -5,12 +5,32 @@ export class BotController {
   private readonly config: GameConfig;
   private actionTimer: number = 0;
   private readonly actionInterval: number = 0.5;
+  private moveTimeRemaining: number = 0;
+  private moveDirection: number = 0;
 
   constructor(config: GameConfig) {
     this.config = config;
   }
 
-  update(botTank: Tank, targetTank: Tank, deltaTime: number): boolean {
+  /** Called at the start of each bot turn to reset movement phase. */
+  startTurn(): void {
+    this.moveTimeRemaining = 0.3 + Math.random() * 0.4; // Move for 0.3-0.7 seconds
+    this.moveDirection = Math.random() < 0.5 ? -1 : 1;
+    this.actionTimer = 0;
+  }
+
+  /** Returns true when bot wants to fire. Handles movement first, then aiming. */
+  update(botTank: Tank, targetTank: Tank, deltaTime: number, getTerrainHeight: (x: number) => number): boolean {
+    // Movement phase: move the tank before aiming
+    if (this.moveTimeRemaining > 0) {
+      this.moveTimeRemaining -= deltaTime;
+      if (botTank.fuel > 0) {
+        botTank.move(this.moveDirection, deltaTime);
+        botTank.snapToTerrain(getTerrainHeight(botTank.position.x));
+      }
+      return false;
+    }
+
     this.actionTimer += deltaTime;
 
     if (this.actionTimer < this.actionInterval) return false;

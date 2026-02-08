@@ -29,52 +29,200 @@ export class Renderer {
     this.renderAimReticle(tanks[activeTankIndex]);
   }
 
+  /**
+   * Draws a realistic side-profile tank at a given position and scale.
+   * Used by both in-game rendering and the tank selection screen.
+   */
+  private drawTankBody(
+    cx: number, cy: number, scale: number,
+    color: string, turretAngle: number, isActive: boolean
+  ): void {
+    const ctx = this.ctx;
+    const s = scale;
+
+    // Darken/lighten helper
+    const darker = (hex: string, amount: number) => {
+      const r = Math.max(0, parseInt(hex.slice(1, 3), 16) - amount);
+      const g = Math.max(0, parseInt(hex.slice(3, 5), 16) - amount);
+      const b = Math.max(0, parseInt(hex.slice(5, 7), 16) - amount);
+      return `rgb(${r},${g},${b})`;
+    };
+
+    // --- TRACK ASSEMBLY ---
+    const trackY = cy + 8 * s;
+    const trackW = 32 * s;
+    const trackH = 10 * s;
+
+    // Track outer shell
+    ctx.fillStyle = '#2a2a2a';
+    ctx.beginPath();
+    ctx.roundRect(cx - trackW, trackY - trackH / 2, trackW * 2, trackH, 5 * s);
+    ctx.fill();
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Track links (small rectangles along bottom)
+    ctx.fillStyle = '#3a3a3a';
+    for (let i = -5; i <= 5; i++) {
+      const lx = cx + i * 5.5 * s;
+      ctx.fillRect(lx - 2 * s, trackY + trackH / 2 - 2.5 * s, 4 * s, 2.5 * s);
+    }
+
+    // Road wheels
+    const wheelCount = 5;
+    const wheelSpacing = (trackW * 1.6) / (wheelCount - 1);
+    const wheelStartX = cx - trackW * 0.8;
+    for (let i = 0; i < wheelCount; i++) {
+      const wx = wheelStartX + i * wheelSpacing;
+      // Outer wheel
+      ctx.fillStyle = '#444';
+      ctx.beginPath();
+      ctx.arc(wx, trackY, 4 * s, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      // Hub
+      ctx.fillStyle = '#555';
+      ctx.beginPath();
+      ctx.arc(wx, trackY, 1.5 * s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Drive sprocket (rear, larger)
+    ctx.fillStyle = '#3a3a3a';
+    ctx.beginPath();
+    ctx.arc(cx + trackW - 2 * s, trackY - 1 * s, 5 * s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#2a2a2a';
+    ctx.stroke();
+
+    // Idler wheel (front, larger)
+    ctx.fillStyle = '#3a3a3a';
+    ctx.beginPath();
+    ctx.arc(cx - trackW + 2 * s, trackY - 1 * s, 5 * s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#2a2a2a';
+    ctx.stroke();
+
+    // --- HULL ---
+    const hullTop = cy - 4 * s;
+    const hullBot = trackY - trackH / 2 + 1 * s;
+    const hullH = hullBot - hullTop;
+
+    // Main hull body (trapezoidal for sloped armor)
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(cx - 28 * s, hullBot);          // rear bottom
+    ctx.lineTo(cx - 26 * s, hullTop);           // rear top
+    ctx.lineTo(cx + 22 * s, hullTop);           // front top
+    ctx.lineTo(cx + 30 * s, hullBot - 2 * s);   // front slope
+    ctx.lineTo(cx + 28 * s, hullBot);           // front bottom
+    ctx.closePath();
+    ctx.fill();
+
+    // Hull front slope highlight
+    ctx.fillStyle = darker(color, -30);
+    ctx.beginPath();
+    ctx.moveTo(cx + 22 * s, hullTop);
+    ctx.lineTo(cx + 30 * s, hullBot - 2 * s);
+    ctx.lineTo(cx + 28 * s, hullBot);
+    ctx.lineTo(cx + 22 * s, hullBot);
+    ctx.closePath();
+    ctx.fill();
+
+    // Hull panel line
+    ctx.strokeStyle = darker(color, 40);
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(cx - 24 * s, hullTop + hullH * 0.5);
+    ctx.lineTo(cx + 24 * s, hullTop + hullH * 0.5);
+    ctx.stroke();
+
+    // Rear engine deck detail
+    ctx.fillStyle = darker(color, 30);
+    ctx.fillRect(cx - 28 * s, hullTop + 1 * s, 8 * s, hullH - 3 * s);
+
+    // --- TURRET ---
+    const turretCx = cx + 2 * s;
+    const turretTop = hullTop - 8 * s;
+    const turretW = 16 * s;
+    const turretH = 8 * s;
+
+    // Turret base (rounded rectangle)
+    ctx.fillStyle = darker(color, 15);
+    ctx.beginPath();
+    ctx.roundRect(turretCx - turretW, turretTop, turretW * 2, turretH, [4 * s, 4 * s, 2 * s, 2 * s]);
+    ctx.fill();
+
+    // Turret top highlight
+    ctx.fillStyle = darker(color, -10);
+    ctx.beginPath();
+    ctx.roundRect(turretCx - turretW + 2 * s, turretTop + 1 * s, turretW * 2 - 4 * s, 3 * s, 2 * s);
+    ctx.fill();
+
+    // Commander's cupola
+    ctx.fillStyle = darker(color, 25);
+    ctx.beginPath();
+    ctx.arc(turretCx - 8 * s, turretTop + 1 * s, 3 * s, 0, Math.PI * 2);
+    ctx.fill();
+
+    // --- GUN BARREL ---
+    const barrelOriginX = turretCx;
+    const barrelOriginY = turretTop + turretH * 0.4;
+    const barrelLength = this.config.turretLength;
+    const barrelEndX = barrelOriginX + Math.cos(turretAngle) * barrelLength;
+    const barrelEndY = barrelOriginY - Math.sin(turretAngle) * barrelLength;
+
+    // Barrel shadow
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.lineWidth = 6 * s;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(barrelOriginX, barrelOriginY + 1);
+    ctx.lineTo(barrelEndX, barrelEndY + 1);
+    ctx.stroke();
+
+    // Main barrel
+    ctx.strokeStyle = isActive ? '#FFD700' : '#555';
+    ctx.lineWidth = 4 * s;
+    ctx.beginPath();
+    ctx.moveTo(barrelOriginX, barrelOriginY);
+    ctx.lineTo(barrelEndX, barrelEndY);
+    ctx.stroke();
+
+    // Muzzle brake
+    const muzzleX = barrelEndX;
+    const muzzleY = barrelEndY;
+    ctx.fillStyle = '#444';
+    ctx.beginPath();
+    ctx.arc(muzzleX, muzzleY, 3.5 * s, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Mantlet (where barrel meets turret)
+    ctx.fillStyle = darker(color, 30);
+    ctx.beginPath();
+    ctx.arc(barrelOriginX + 2 * s, barrelOriginY, 4 * s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   private renderTank(tank: Tank, isActive: boolean): void {
     if (!tank.alive) return;
 
     const ctx = this.ctx;
     const { x, y } = tank.position;
-    const halfW = this.config.tankWidth / 2;
     const halfH = this.config.tankHeight / 2;
 
-    // Tank body - use tank type color
-    const bodyColor = tank.tankType.color;
-    ctx.fillStyle = bodyColor;
-    ctx.fillRect(x - halfW, y - halfH, this.config.tankWidth, this.config.tankHeight);
-
-    // Tank body top (rounded shape)
-    ctx.fillStyle = bodyColor;
-    ctx.beginPath();
-    ctx.ellipse(x, y - halfH, halfW * 0.6, halfH * 0.7, 0, Math.PI, 0);
-    ctx.fill();
-
-    // Turret
-    const turretEnd = tank.getTurretEnd();
-    ctx.strokeStyle = isActive ? '#FFD700' : '#333';
-    ctx.lineWidth = 5;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(x, y - halfH);
-    ctx.lineTo(turretEnd.x, turretEnd.y);
-    ctx.stroke();
-
-    // Turret pivot
-    ctx.fillStyle = '#333';
-    ctx.beginPath();
-    ctx.arc(x, y - halfH, 5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Treads
-    ctx.fillStyle = '#1a1a1a';
-    ctx.fillRect(x - halfW - 2, y + halfH - 6, this.config.tankWidth + 4, 6);
+    this.drawTankBody(x, y, 1, tank.tankType.color, tank.angle, isActive);
 
     // Active indicator
     if (isActive) {
       ctx.fillStyle = '#FFD700';
       ctx.beginPath();
-      ctx.moveTo(x, y - halfH - 25);
-      ctx.lineTo(x - 6, y - halfH - 15);
-      ctx.lineTo(x + 6, y - halfH - 15);
+      ctx.moveTo(x, y - halfH - 30);
+      ctx.lineTo(x - 6, y - halfH - 20);
+      ctx.lineTo(x + 6, y - halfH - 20);
       ctx.closePath();
       ctx.fill();
     }
@@ -83,7 +231,7 @@ export class Renderer {
     ctx.fillStyle = '#FFF';
     ctx.font = '9px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(tank.tankType.name, x, y + halfH + 16);
+    ctx.fillText(tank.tankType.name, x, y + halfH + 22);
     ctx.textAlign = 'start';
   }
 
@@ -285,27 +433,10 @@ export class Renderer {
         ctx.strokeRect(cardX, cardY, cardWidth, cardHeight);
       }
 
-      // Tank preview (simple rectangle representation)
+      // Tank preview (realistic)
       const previewX = cardX + cardWidth / 2;
-      const previewY = cardY + 60;
-      ctx.fillStyle = typeConfig.color;
-      ctx.fillRect(previewX - 30, previewY - 15, 60, 30);
-      ctx.beginPath();
-      ctx.ellipse(previewX, previewY - 15, 18, 10, 0, Math.PI, 0);
-      ctx.fill();
-
-      // Turret
-      ctx.strokeStyle = '#333';
-      ctx.lineWidth = 5;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(previewX, previewY - 15);
-      ctx.lineTo(previewX + 25, previewY - 30);
-      ctx.stroke();
-
-      // Treads
-      ctx.fillStyle = '#1a1a1a';
-      ctx.fillRect(previewX - 32, previewY + 9, 64, 6);
+      const previewY = cardY + 65;
+      this.drawTankBody(previewX, previewY, 1.1, typeConfig.color, Math.PI / 6, false);
 
       // Tank name
       ctx.fillStyle = typeConfig.color;

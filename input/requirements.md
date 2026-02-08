@@ -21,6 +21,8 @@
 * Tanks use fuel when they move.
 * When all fuel is used the tank can no longer move.
 * Fuel gauge is displayed to show remaining fuel.
+* Tank images are realistic.
+* Once a tank has fired it can no longer move for the remainer of its turn.
 
 ### Firing
 * Tanks can fire bullets using arc reticle
@@ -48,6 +50,9 @@ MAUS
 Can only fire once 2 turns
 50 damage per bullet
 Bullet causes a larger crater in the terrain
+
+### CPU Player
+* Its tank should move each turn.
 
 ## Deployment
 * The game will be hosted on github pages at the following base URL path: /tank-game
