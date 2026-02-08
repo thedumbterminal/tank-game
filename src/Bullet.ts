@@ -5,16 +5,18 @@ export class Bullet {
   public velocity: Vector2;
   public active: boolean;
   public hitTerrain: boolean = false; // True if deactivated by terrain collision
+  public readonly craterRadius: number;
 
   private readonly config: GameConfig;
   private readonly ownerIndex: number;
 
-  constructor(position: Vector2, velocity: Vector2, ownerIndex: number, config: GameConfig) {
+  constructor(position: Vector2, velocity: Vector2, ownerIndex: number, config: GameConfig, craterRadius: number = 15) {
     this.position = { ...position };
     this.velocity = { ...velocity };
     this.active = true;
     this.ownerIndex = ownerIndex;
     this.config = config;
+    this.craterRadius = craterRadius;
   }
 
   get owner(): number {

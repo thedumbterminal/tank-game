@@ -11,6 +11,7 @@ interface QueuedBullet {
   velocity: Vector2;
   ownerIndex: number;
   delay: number; // seconds until this bullet fires
+  craterRadius: number;
 }
 
 export class Game {
@@ -207,6 +208,7 @@ export class Game {
     const bulletsPerShot = tank.tankType.bulletsPerShot;
     const spread = tank.tankType.bulletSpread;
     const fireDelay = tank.tankType.bulletFireDelay;
+    const craterRadius = tank.tankType.craterRadius;
 
     for (let i = 0; i < bulletsPerShot; i++) {
       let vx = baseVelocity.x;
@@ -230,6 +232,7 @@ export class Game {
           velocity: { x: vx, y: vy },
           ownerIndex,
           delay: i * fireDelay,
+          craterRadius,
         });
       } else {
         // Fire immediately
@@ -237,7 +240,8 @@ export class Game {
           { x: turretEnd.x, y: turretEnd.y },
           { x: vx, y: vy },
           ownerIndex,
-          this.config
+          this.config,
+          craterRadius
         ));
       }
     }

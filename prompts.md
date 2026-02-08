@@ -1,9 +1,15 @@
 # Prompts
 
+How to control BMAD.
+
 ## Repeated use
 
-We previously got together for the following task @input_docs/task.md
+We previously got together for the following task @input/task.md
 
-The following requirements were used @input_docs/requirements.md
+The following requirements were used @input/requirements.md
 
-The game in 
+Now we need some new features.
+
+Please check this file for new features @input/requirements.md
+
+Please update the game.

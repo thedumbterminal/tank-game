@@ -5,7 +5,9 @@
       "Bash(source:*)",
       "Bash(nvm use:*)",
       "Bash(npx tsc --noEmit)",
-      "Bash(npx vite build)"
+      "Bash(npx vite build)",
+      "Bash(./node_modules/.bin/tsc:*)",
+      "Bash(node --version:*)"
     ]
   }
 }

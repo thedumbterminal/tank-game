@@ -213,6 +213,33 @@ export class Renderer {
       ctx.fillStyle = '#FFF';
       ctx.font = '11px monospace';
       ctx.fillText(`Angle: ${angleDeg}°`, hudX, 65);
+
+      // Fuel gauge
+      const fuelBarY = 75;
+      const fuelBarWidth = 200;
+      const fuelBarHeight = 12;
+      const fuelRatio = tank.fuel / tank.maxFuel;
+
+      // Background
+      ctx.fillStyle = '#333';
+      ctx.fillRect(hudX, fuelBarY, fuelBarWidth, fuelBarHeight);
+
+      // Fill - transitions from cyan to orange to red as fuel depletes
+      const fuelColor = fuelRatio > 0.5 ? '#06B6D4' : fuelRatio > 0.2 ? '#F59E0B' : '#EF4444';
+      ctx.fillStyle = fuelColor;
+      ctx.fillRect(hudX, fuelBarY, fuelBarWidth * fuelRatio, fuelBarHeight);
+
+      // Border
+      ctx.strokeStyle = '#FFF';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(hudX, fuelBarY, fuelBarWidth, fuelBarHeight);
+
+      // Label
+      ctx.fillStyle = '#FFF';
+      ctx.font = '11px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`FUEL ${Math.round(tank.fuel)}`, hudX + fuelBarWidth / 2, fuelBarY + 10);
+      ctx.textAlign = 'start';
     });
   }
 

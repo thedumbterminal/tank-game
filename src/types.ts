@@ -13,6 +13,7 @@ export interface GameConfig {
   tankWidth: number;
   tankHeight: number;
   tankHealth: number;
+  tankFuel: number; // Starting fuel for each tank
   turretLength: number;
   minAngle: number;
   maxAngle: number;
@@ -41,6 +42,7 @@ export interface TankTypeConfig {
   bulletSpread: number; // radians of spread for multi-bullet
   bulletVelocityMultiplier: number;
   bulletFireDelay: number; // seconds between sequential bullets (0 = all at once)
+  craterRadius: number; // radius of crater created by bullets
   color: string;
 }
 
@@ -54,6 +56,7 @@ export const TANK_TYPES: Record<TankTypeName, TankTypeConfig> = {
     bulletSpread: 0.15,
     bulletVelocityMultiplier: 1.3,
     bulletFireDelay: 0.08, // 80ms between each bullet
+    craterRadius: 15,
     color: '#2563EB',
   },
   [TankTypeName.Abrams]: {
@@ -65,17 +68,19 @@ export const TANK_TYPES: Record<TankTypeName, TankTypeConfig> = {
     bulletSpread: 0,
     bulletVelocityMultiplier: 1.0,
     bulletFireDelay: 0,
+    craterRadius: 15,
     color: '#16A34A',
   },
   [TankTypeName.Maus]: {
     name: TankTypeName.Maus,
-    description: '1 bullet per shot, 50 dmg, fires every 2 turns',
+    description: '1 bullet per shot, 50 dmg, fires every 2 turns, larger crater',
     damage: 50,
     bulletsPerShot: 1,
     fireCooldownTurns: 2,
     bulletSpread: 0,
     bulletVelocityMultiplier: 0.9,
     bulletFireDelay: 0,
+    craterRadius: 30, // MAUS causes larger craters
     color: '#7C3AED',
   },
 };
@@ -95,6 +100,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   tankWidth: 60,
   tankHeight: 30,
   tankHealth: 100,
+  tankFuel: 100, // Starting fuel
   turretLength: 35,
   minAngle: 0,
   maxAngle: Math.PI,

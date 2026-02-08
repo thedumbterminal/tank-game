@@ -6,6 +6,7 @@ export class Tank {
   public angle: number;
   public power: number;
   public alive: boolean;
+  public fuel: number;
   public fireCooldownRemaining: number = 0;
 
   private readonly _side: PlayerSide;
@@ -19,6 +20,7 @@ export class Tank {
     this.config = config;
     this._tankType = TANK_TYPES[tankType];
     this.health = config.tankHealth;
+    this.fuel = config.tankFuel;
     this.alive = true;
 
     const startX = side === PlayerSide.Left
@@ -60,10 +62,23 @@ export class Tank {
     this.fireCooldownRemaining = this._tankType.fireCooldownTurns - 1;
   }
 
+  get maxFuel(): number {
+    return this.config.tankFuel;
+  }
+
   move(direction: number, deltaTime: number): void {
     if (!this.alive) return;
-    const newX = this.position.x + direction * this.config.tankSpeed * deltaTime;
-    this.position.x = Math.max(this.minX, Math.min(this.maxX, newX));
+    if (this.fuel <= 0) return; // Cannot move without fuel
+
+    const moveDistance = Math.abs(direction) * this.config.tankSpeed * deltaTime;
+    const fuelCost = moveDistance * 0.5; // Fuel consumption rate
+
+    // Only move if we have fuel
+    if (this.fuel > 0) {
+      const newX = this.position.x + direction * this.config.tankSpeed * deltaTime;
+      this.position.x = Math.max(this.minX, Math.min(this.maxX, newX));
+      this.fuel = Math.max(0, this.fuel - fuelCost);
+    }
   }
 
   adjustAngle(delta: number): void {
