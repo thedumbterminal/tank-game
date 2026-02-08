@@ -196,9 +196,13 @@ export class Game {
       tank.adjustPower(powerSpeed);
     }
 
-    // Fire
-    if (this.input.wasPressed(' ') && !this.shotFired && tank.canFire) {
-      this.fire(tank, this.activeTankIndex);
+    // Fire - or end turn if reloading
+    if (this.input.wasPressed(' ') && !this.shotFired) {
+      if (tank.canFire) {
+        this.fire(tank, this.activeTankIndex);
+      } else {
+        this.switchTurn();
+      }
     }
   }
 

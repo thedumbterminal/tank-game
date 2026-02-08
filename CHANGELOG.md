@@ -4,6 +4,47 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+## [1.8.0] - 2026-02-08
+
+### Added
+
+- Fire button (space) now ends the turn when tank is reloading, so MAUS players can skip their cooldown turn instead of waiting
+
+## [1.7.1] - 2026-02-08
+
+### Fixed
+
+- MAUS tank could fire every turn instead of every 2 turns. Off-by-one in `onFired()` set cooldown to `fireCooldownTurns - 1` instead of `fireCooldownTurns`
+- Added regression test to prevent recurrence
+
+## [1.7.0] - 2026-02-08
+
+### Added
+
+- Regression test file (`regression.test.ts`) for tracking bug fix tests as bugs are discovered and resolved
+
+## [1.6.0] - 2026-02-08
+
+### Added
+
+- Unit test suite with vitest covering all game requirements (69 tests)
+- Tests for: tank movement, fuel system, health/damage, tank types, bullet physics, terrain generation, craters, and game config
+- `npm test` script to run test suite
+
+## [1.5.0] - 2026-02-08
+
+### Changed
+
+- Updated `.nvmrc` to latest stable Node.js 24 (LTS Krypton)
+- Tank selection screen now shows image, name, and capabilities table only (removed description text)
+
+## [1.4.0] - 2026-02-08
+
+### Added
+
+- Tank capabilities table on selection screen showing damage, bullets/shot, fire rate, velocity, and crater size
+- `.nvmrc` file specifying Node.js 22 for consistent development environments
+
 ## [1.3.0] - 2026-02-08
 
 ### Added

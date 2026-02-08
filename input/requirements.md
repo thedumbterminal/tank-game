@@ -6,11 +6,13 @@
 * The terrain will be randomly generated to include trenches and hills.
 
 ## Tech
-* Game will use the node.js version defined in the .nvmrc file.
+* Game will use the latest stable node.js version and set in the .nvmrc file.
 * Game will be written in typescript.
 * Game will use OO principles.
 * Version number in package.json will be increased on each time new features are added to the game.
 * Please generate a CHANGELOG.md file using a common changelog format described here: https://common-changelog.org
+* Create unit tests to ensure that all requirements work correctly.
+* Create regression tests for all bugs found.
 
 ## Player tanks
 
@@ -25,15 +27,17 @@
 * Ensure that the arch reticle is black to be visible against the background.
 * The arch reticle is only shown close to the player tank, to add an element of skill.
 * Tank bullets will explode and cause a small crater in the terrain.
+* If a tank is reloading, the fire button will also end the turn.
 
 ### Types
-* The player can pick a tank before starting the match
-* There are 3 types of tank that can be used
+* The player can pick a tank before starting the match.
+* The tanks are displayed with the image, name and capabilities only for the player to pick from.
+* Each tank's capabilities are shown in a table format.
+* There are 3 types of tank that can be used.
 
 M48 GAU-AVENGER
 Fires 10 bullets at once per attack at a high volicity
 5 damage per bullet
-
 The bullets fire one after another.
 
 AMBRAMS

@@ -59,7 +59,7 @@ export class Tank {
   }
 
   onFired(): void {
-    this.fireCooldownRemaining = this._tankType.fireCooldownTurns - 1;
+    this.fireCooldownRemaining = this._tankType.fireCooldownTurns;
   }
 
   get maxFuel(): number {

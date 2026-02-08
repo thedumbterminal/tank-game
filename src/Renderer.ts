@@ -259,7 +259,7 @@ export class Renderer {
 
     // Tank options
     const cardWidth = 240;
-    const cardHeight = 280;
+    const cardHeight = 270;
     const gap = 40;
     const totalWidth = tankTypes.length * cardWidth + (tankTypes.length - 1) * gap;
     const startX = (canvasWidth - totalWidth) / 2;
@@ -313,29 +313,79 @@ export class Renderer {
       ctx.textAlign = 'center';
       ctx.fillText(typeConfig.name, cardX + cardWidth / 2, cardY + 110);
 
-      // Description
-      ctx.fillStyle = '#CCC';
-      ctx.font = '12px monospace';
-      ctx.fillText(typeConfig.description, cardX + cardWidth / 2, cardY + 140);
+      // Stats table
+      const tableX = cardX + 12;
+      const tableW = cardWidth - 24;
+      const tableY = cardY + 125;
+      const rowH = 18;
+      const labelX = tableX + 6;
+      const valueX = tableX + tableW - 6;
 
-      // Stats
-      ctx.fillStyle = '#AAA';
-      ctx.font = '11px monospace';
-      const statsY = cardY + 170;
-      ctx.fillText(`Damage: ${typeConfig.damage}`, cardX + cardWidth / 2, statsY);
-      ctx.fillText(`Bullets: ${typeConfig.bulletsPerShot}`, cardX + cardWidth / 2, statsY + 20);
-      if (typeConfig.fireCooldownTurns > 1) {
-        ctx.fillStyle = '#FF6B6B';
-        ctx.fillText(`Fires every ${typeConfig.fireCooldownTurns} turns`, cardX + cardWidth / 2, statsY + 40);
-      } else {
-        ctx.fillText('Fires every turn', cardX + cardWidth / 2, statsY + 40);
-      }
+      // Table header
+      ctx.fillStyle = '#555';
+      ctx.fillRect(tableX, tableY, tableW, rowH);
+      ctx.fillStyle = '#FFD700';
+      ctx.font = 'bold 10px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('STAT', labelX, tableY + 13);
+      ctx.textAlign = 'right';
+      ctx.fillText('VALUE', valueX, tableY + 13);
 
-      if (typeConfig.bulletVelocityMultiplier !== 1.0) {
-        ctx.fillStyle = typeConfig.bulletVelocityMultiplier > 1 ? '#4ADE80' : '#FCA5A5';
-        const label = typeConfig.bulletVelocityMultiplier > 1 ? 'High velocity' : 'Low velocity';
-        ctx.fillText(label, cardX + cardWidth / 2, statsY + 60);
-      }
+      // Table rows
+      const rows: { label: string; value: string; color?: string }[] = [
+        { label: 'Damage', value: `${typeConfig.damage}` },
+        { label: 'Bullets/Shot', value: `${typeConfig.bulletsPerShot}` },
+        {
+          label: 'Fire Rate',
+          value: typeConfig.fireCooldownTurns > 1 ? `Every ${typeConfig.fireCooldownTurns} turns` : 'Every turn',
+          color: typeConfig.fireCooldownTurns > 1 ? '#FF6B6B' : undefined,
+        },
+        {
+          label: 'Velocity',
+          value: typeConfig.bulletVelocityMultiplier > 1 ? 'High' : typeConfig.bulletVelocityMultiplier < 1 ? 'Low' : 'Normal',
+          color: typeConfig.bulletVelocityMultiplier > 1 ? '#4ADE80' : typeConfig.bulletVelocityMultiplier < 1 ? '#FCA5A5' : undefined,
+        },
+        {
+          label: 'Crater Size',
+          value: typeConfig.craterRadius > 15 ? 'Large' : 'Normal',
+          color: typeConfig.craterRadius > 15 ? '#F59E0B' : undefined,
+        },
+      ];
+
+      rows.forEach((row, ri) => {
+        const ry = tableY + rowH + ri * rowH;
+
+        // Alternating row background
+        if (ri % 2 === 0) {
+          ctx.fillStyle = 'rgba(255,255,255,0.03)';
+          ctx.fillRect(tableX, ry, tableW, rowH);
+        }
+
+        // Row divider
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(tableX, ry);
+        ctx.lineTo(tableX + tableW, ry);
+        ctx.stroke();
+
+        // Label
+        ctx.fillStyle = '#AAA';
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(row.label, labelX, ry + 13);
+
+        // Value
+        ctx.fillStyle = row.color || '#FFF';
+        ctx.textAlign = 'right';
+        ctx.fillText(row.value, valueX, ry + 13);
+      });
+
+      // Table border
+      const tableH = rowH + rows.length * rowH;
+      ctx.strokeStyle = '#444';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(tableX, tableY, tableW, tableH);
     });
 
     // Controls hint
