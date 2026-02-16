@@ -19,10 +19,18 @@
       min-height: 100vh;
       font-family: monospace;
       color: #fff;
+      overflow: hidden;
+      touch-action: none;
+    }
+    #game-container {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     canvas {
-      border: 2px solid #333;
       display: block;
+      border: 2px solid #333;
     }
     .controls {
       margin-top: 16px;
@@ -38,10 +46,89 @@
       border: 1px solid #555;
       font-size: 12px;
     }
+
+    /* Touch controls - hidden by default, shown on touch devices */
+    #touch-controls {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 8px;
+      z-index: 10;
+      pointer-events: none;
+    }
+    #touch-controls.visible {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    .touch-group {
+      display: flex;
+      gap: 10px;
+      pointer-events: auto;
+    }
+    .touch-group-col {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: auto;
+    }
+    .touch-btn {
+      width: 64px;
+      height: 64px;
+      border-radius: 12px;
+      border: 2px solid rgba(255,255,255,0.3);
+      background: rgba(255,255,255,0.12);
+      color: #fff;
+      font-size: 18px;
+      font-family: monospace;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      pointer-events: auto;
+      touch-action: none;
+    }
+    .touch-btn:active, .touch-btn.pressed {
+      background: rgba(255,215,0,0.35);
+      border-color: #FFD700;
+    }
+    .touch-btn.fire-btn {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: rgba(255,68,68,0.25);
+      border-color: rgba(255,68,68,0.5);
+      font-size: 14px;
+    }
+    .touch-btn.fire-btn:active, .touch-btn.fire-btn.pressed {
+      background: rgba(255,68,68,0.5);
+      border-color: #FF4444;
+    }
+
+    /* Hide keyboard controls hint on touch devices */
+    @media (pointer: coarse) {
+      .controls {
+        display: none;
+      }
+    }
+
+    /* Hide touch controls on desktop unless explicitly activated */
+    @media (pointer: fine) and (hover: hover) {
+      #touch-controls {
+        display: none !important;
+      }
+    }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas"></canvas>
+  <div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+  </div>
   <div class="controls">
     <kbd>A</kbd>/<kbd>D</kbd> or <kbd>←</kbd>/<kbd>→</kbd> Move &nbsp;|&nbsp;
     <kbd>W</kbd>/<kbd>S</kbd> or <kbd>↑</kbd>/<kbd>↓</kbd> Aim &nbsp;|&nbsp;
@@ -49,6 +136,34 @@
     <kbd>Space</kbd> Fire &nbsp;|&nbsp;
     <kbd>R</kbd> Restart
   </div>
+
+  <!-- Touch controls overlay -->
+  <div id="touch-controls">
+    <!-- Left side: movement -->
+    <div class="touch-group">
+      <button class="touch-btn" data-key="ArrowLeft">&#9664;</button>
+      <button class="touch-btn" data-key="ArrowRight">&#9654;</button>
+    </div>
+
+    <!-- Center: aim + power -->
+    <div class="touch-group-col">
+      <div class="touch-group">
+        <button class="touch-btn" data-key="ArrowUp">&#9650;</button>
+        <button class="touch-btn" data-key="ArrowDown">&#9660;</button>
+      </div>
+      <div class="touch-group">
+        <button class="touch-btn" data-key="Q">Q-</button>
+        <button class="touch-btn" data-key="E">E+</button>
+      </div>
+    </div>
+
+    <!-- Right side: fire + restart -->
+    <div class="touch-group-col" style="align-items: flex-end;">
+      <button class="touch-btn fire-btn" data-key=" ">FIRE</button>
+      <button class="touch-btn" data-key="R" style="width:80px; font-size:12px;">RST</button>
+    </div>
+  </div>
+
   <script type="module" src="/src/index.ts"></script>
 </body>
 </html>

@@ -519,11 +519,19 @@ export class Renderer {
       ctx.strokeRect(tableX, tableY, tableW, tableH);
     });
 
-    // Controls hint
+    // Controls hint - show tap instructions if touch-capable, keyboard otherwise
     ctx.fillStyle = '#888';
     ctx.font = '14px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('A/D or Arrow Keys to select  |  Space/Enter to confirm', canvasWidth / 2, canvasHeight - 40);
+    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const hasPointer = window.matchMedia('(pointer: fine)').matches;
+    if (hasTouch && !hasPointer) {
+      ctx.fillText('Tap a tank to select  |  Tap again to confirm', canvasWidth / 2, canvasHeight - 40);
+    } else if (hasTouch && hasPointer) {
+      ctx.fillText('Tap or A/D to select  |  Tap again or Enter to confirm', canvasWidth / 2, canvasHeight - 40);
+    } else {
+      ctx.fillText('A/D or Arrow Keys to select  |  Space/Enter to confirm', canvasWidth / 2, canvasHeight - 40);
+    }
     ctx.textAlign = 'start';
   }
 
@@ -541,10 +549,15 @@ export class Renderer {
     ctx.textAlign = 'center';
     ctx.fillText(`${label} WINS!`, this.config.canvasWidth / 2, this.config.canvasHeight / 2 - 20);
 
-    // Restart hint
+    // Restart hint - show tap if touch-capable
     ctx.fillStyle = '#FFF';
     ctx.font = '18px monospace';
-    ctx.fillText('Press R to restart', this.config.canvasWidth / 2, this.config.canvasHeight / 2 + 30);
+    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    if (hasTouch) {
+      ctx.fillText('Tap or press R to restart', this.config.canvasWidth / 2, this.config.canvasHeight / 2 + 30);
+    } else {
+      ctx.fillText('Press R to restart', this.config.canvasWidth / 2, this.config.canvasHeight / 2 + 30);
+    }
     ctx.textAlign = 'start';
   }
 }

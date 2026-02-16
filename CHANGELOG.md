@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+## [1.12.0] - 2026-02-16
+
+### Changed
+
+- Dev server now allows connections on the local network via `--host` flag on port 8080
+- Dev server allows any hostname via `server.allowedHosts: true` in Vite config
+
+## [1.11.0] - 2026-02-16
+
+### Added
+
+- Phone touchscreen and desktop compatibility
+- Responsive canvas scaling that fits any screen size while maintaining 16:9 aspect ratio
+- Virtual touch controls overlay with movement, aim, power, fire, and restart buttons
+- Tap-to-select tank selection (tap to highlight, tap again to confirm)
+- Tap-to-restart on game over screen
+- Adaptive UI hints showing touch or keyboard controls based on device capabilities
+- Multi-touch tracking per button with proper touch identifier management
+- Global touch state cleanup on app interruption and visibility change
+- InputHandler unit tests (14 tests covering keyboard, touch, simulatePress, and coordinate scaling)
+
+### Changed
+
+- Touch controls auto-detect and show only on touch-capable devices
+- Hybrid devices (e.g. Surface Pro) show both touch and keyboard hints
+- Canvas touch events use `passive: false` to prevent unwanted browser zoom/scroll gestures
+- Touch button sizes increased to 64x64px (fire: 80px) for accessibility compliance
+- Resize events debounced to prevent layout thrashing on orientation change
+
 ## [1.10.0] - 2026-02-08
 
 ### Added

@@ -9,7 +9,10 @@
       "Bash(./node_modules/.bin/tsc:*)",
       "Bash(node --version:*)",
       "Bash(nvm ls-remote:*)",
-      "Bash(npx vitest run)"
+      "Bash(npx vitest run)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(npm ls:*)"
     ]
   }
 }

@@ -38,8 +38,11 @@ export class Game {
   private selectedTankIndex: number = 1; // Default to Abrams
   private playerTankType: TankTypeName = TankTypeName.Abrams;
 
+  private readonly canvas: HTMLCanvasElement;
+
   constructor(canvas: HTMLCanvasElement, config: GameConfig = DEFAULT_CONFIG) {
     this.config = config;
+    this.canvas = canvas;
     canvas.width = config.canvasWidth;
     canvas.height = config.canvasHeight;
 
@@ -52,6 +55,67 @@ export class Game {
 
     this.terrain = new Terrain(this.config);
     this.renderer = new Renderer(this.ctx, this.config, this.terrain);
+
+    this.initCanvasTouch();
+  }
+
+  /** Convert a touch/click event to canvas-space coordinates */
+  private canvasCoordsFromEvent(e: MouseEvent | Touch): { x: number; y: number } {
+    const rect = this.canvas.getBoundingClientRect();
+    const scaleX = this.config.canvasWidth / rect.width;
+    const scaleY = this.config.canvasHeight / rect.height;
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
+  }
+
+  /** Handle canvas taps for tank selection and game over restart */
+  private initCanvasTouch(): void {
+    const handleTap = (x: number, y: number) => {
+      if (this.state === GameState.TankSelect) {
+        this.handleTankSelectTap(x, y);
+      } else if (this.state === GameState.GameOver) {
+        // Tap anywhere to restart
+        this.input.simulatePress('r');
+      }
+    };
+
+    this.canvas.addEventListener('click', (e) => {
+      const pos = this.canvasCoordsFromEvent(e);
+      handleTap(pos.x, pos.y);
+    });
+
+    this.canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (e.touches.length === 1) {
+        const pos = this.canvasCoordsFromEvent(e.touches[0]);
+        handleTap(pos.x, pos.y);
+      }
+    }, { passive: false });
+  }
+
+  private handleTankSelectTap(x: number, y: number): void {
+    const cardWidth = 240;
+    const cardHeight = 270;
+    const gap = 40;
+    const totalWidth = this.tankTypeOptions.length * cardWidth + (this.tankTypeOptions.length - 1) * gap;
+    const startX = (this.config.canvasWidth - totalWidth) / 2;
+    const cardY = 120;
+
+    for (let i = 0; i < this.tankTypeOptions.length; i++) {
+      const cardX = startX + i * (cardWidth + gap);
+      if (x >= cardX && x <= cardX + cardWidth && y >= cardY && y <= cardY + cardHeight) {
+        if (this.selectedTankIndex === i) {
+          // Double-tap same card = confirm
+          this.playerTankType = this.tankTypeOptions[this.selectedTankIndex];
+          this.initMatch();
+        } else {
+          this.selectedTankIndex = i;
+        }
+        return;
+      }
+    }
   }
 
   private initMatch(): void {
@@ -341,7 +405,11 @@ export class Game {
   }
 
   private render(): void {
+    const touchControls = document.getElementById('touch-controls');
+
     if (this.state === GameState.TankSelect) {
+      // Hide touch controls on selection screen (tap directly on canvas)
+      if (touchControls) touchControls.style.visibility = 'hidden';
       this.renderer.renderTankSelect(this.tankTypeOptions, this.selectedTankIndex);
       return;
     }
@@ -349,7 +417,12 @@ export class Game {
     this.renderer.renderScene(this.tanks, this.bullets, this.activeTankIndex);
 
     if (this.state === GameState.GameOver) {
+      // Hide touch controls so they don't block restart tap
+      if (touchControls) touchControls.style.visibility = 'hidden';
       this.renderer.renderGameOver(this.winnerIndex);
+    } else {
+      // Show touch controls during gameplay
+      if (touchControls) touchControls.style.visibility = '';
     }
   }
 }

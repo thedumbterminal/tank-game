@@ -1,6 +1,6 @@
 # Requirements
 
-* 2 player game, one play can be a bot.
+* 2 player game, one player can be a bot.
 * You win the game by destroying the other tank.
 * Game will be a side on, fixed screen 2D view.
 * The terrain will be randomly generated to include trenches and hills.
@@ -13,6 +13,7 @@
 * Please generate a CHANGELOG.md file using a common changelog format described here: https://common-changelog.org
 * Create unit tests to ensure that all requirements work correctly.
 * Create regression tests for all bugs found.
+* Compatible with a phone's touchscreen and desktop.
 
 ## Player tanks
 
@@ -57,3 +58,5 @@ Bullet causes a larger crater in the terrain
 ## Deployment
 * The game will be hosted on github pages at the following base URL path: /tank-game
 * The local dev server will serve the game from the base URL path: /
+* The local dev server will allow connections on the local network and not block any hostname.
+
