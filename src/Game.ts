@@ -7,6 +7,7 @@ import { InputHandler } from './InputHandler';
 import { BotController } from './BotController';
 import { LevelManager } from './LevelManager';
 import { SaveManager } from './SaveManager';
+import { FirebaseService } from './FirebaseService';
 
 interface QueuedBullet {
   position: Vector2;
@@ -23,6 +24,7 @@ export class Game {
   private readonly ctx: CanvasRenderingContext2D;
   private readonly levelManager: LevelManager;
   private readonly saveManager: SaveManager;
+  private readonly firebaseService: FirebaseService;
 
   private renderer!: Renderer;
   private terrain!: Terrain;
@@ -47,6 +49,7 @@ export class Game {
 
   // Leaderboard / name entry state
   private currentLeaderboard: LeaderboardEntry[] = [];
+  private leaderboardLoading: boolean = false;
   private pendingLeaderboardLevel: number = 1;
   private nameInputEl: HTMLInputElement | null = null;
 
@@ -66,6 +69,7 @@ export class Game {
     this.botController = new BotController(config);
     this.levelManager = new LevelManager();
     this.saveManager = new SaveManager();
+    this.firebaseService = new FirebaseService();
 
     this.terrain = new Terrain(this.config);
     this.renderer = new Renderer(this.ctx, this.config, this.terrain);
@@ -162,8 +166,13 @@ export class Game {
       this.state = GameState.TankSelect;
       this.selectedTankIndex = 1;
     } else {
-      this.currentLeaderboard = save.leaderboard;
+      this.currentLeaderboard = [];
+      this.leaderboardLoading = true;
       this.state = GameState.Leaderboard;
+      this.firebaseService.fetchLeaderboard()
+        .then((entries) => { this.currentLeaderboard = entries; })
+        .catch(() => { /* graceful fallback — leaderboard stays empty */ })
+        .finally(() => { this.leaderboardLoading = false; });
     }
   }
 
@@ -552,12 +561,21 @@ export class Game {
     if (existing) existing.remove();
   }
 
-  private submitName(name: string): void {
+  private async submitName(name: string): Promise<void> {
     this.hideNameInput();
-    const updatedData = this.saveManager.addLeaderboardEntry(name, this.pendingLeaderboardLevel);
-    this.currentLeaderboard = updatedData.leaderboard;
+    this.currentLeaderboard = [];
+    this.leaderboardLoading = true;
     this.levelManager.reset();
     this.state = GameState.GameOver;
+
+    try {
+      await this.firebaseService.submitEntry(name, this.pendingLeaderboardLevel);
+      this.currentLeaderboard = await this.firebaseService.fetchLeaderboard();
+    } catch (e) {
+      console.error('Leaderboard error:', e);
+    } finally {
+      this.leaderboardLoading = false;
+    }
   }
 
   private render(): void {
@@ -597,14 +615,13 @@ export class Game {
 
     if (this.state === GameState.GameOver) {
       if (touchControls) touchControls.style.visibility = 'hidden';
-      this.renderer.renderLeaderboard(this.currentLeaderboard, false);
+      this.renderer.renderLeaderboard(this.currentLeaderboard, false, this.leaderboardLoading);
       return;
     }
 
     if (this.state === GameState.Leaderboard) {
       if (touchControls) touchControls.style.visibility = 'hidden';
-      const save = this.saveManager.load();
-      this.renderer.renderLeaderboard(save.leaderboard, true);
+      this.renderer.renderLeaderboard(this.currentLeaderboard, true, this.leaderboardLoading);
       return;
     }
 

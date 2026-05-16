@@ -641,7 +641,7 @@ export class Renderer {
     ctx.textAlign = 'start';
   }
 
-  renderLeaderboard(entries: LeaderboardEntry[], fromMainMenu: boolean): void {
+  renderLeaderboard(entries: LeaderboardEntry[], fromMainMenu: boolean, loading: boolean = false): void {
     const ctx = this.ctx;
     const { canvasWidth, canvasHeight } = this.config;
 
@@ -653,7 +653,12 @@ export class Renderer {
     ctx.textAlign = 'center';
     ctx.fillText('LEADERBOARD', canvasWidth / 2, 60);
 
-    if (entries.length === 0) {
+    if (loading) {
+      ctx.fillStyle = '#FFD700';
+      ctx.font = 'bold 18px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('Fetching leaderboard...', canvasWidth / 2, canvasHeight / 2);
+    } else if (entries.length === 0) {
       ctx.fillStyle = '#555';
       ctx.font = '18px monospace';
       ctx.fillText('No entries yet — play to get on the board!', canvasWidth / 2, canvasHeight / 2);

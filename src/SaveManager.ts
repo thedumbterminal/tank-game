@@ -1,24 +1,22 @@
-import { SaveData, LeaderboardEntry } from './types';
+import { SaveData } from './types';
 
 const SAVE_KEY = 'tank_game_save';
 
 const DEFAULT_SAVE: SaveData = {
   lastCompletedLevel: 0,
-  leaderboard: [],
 };
 
 export class SaveManager {
   load(): SaveData {
     try {
       const raw = localStorage.getItem(SAVE_KEY);
-      if (!raw) return { ...DEFAULT_SAVE, leaderboard: [] };
-      const parsed = JSON.parse(raw) as SaveData;
+      if (!raw) return { ...DEFAULT_SAVE };
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
       return {
-        lastCompletedLevel: parsed.lastCompletedLevel ?? 0,
-        leaderboard: Array.isArray(parsed.leaderboard) ? parsed.leaderboard : [],
+        lastCompletedLevel: typeof parsed['lastCompletedLevel'] === 'number' ? parsed['lastCompletedLevel'] : 0,
       };
     } catch {
-      return { ...DEFAULT_SAVE, leaderboard: [] };
+      return { ...DEFAULT_SAVE };
     }
   }
 
@@ -40,22 +38,5 @@ export class SaveManager {
       data.lastCompletedLevel = level;
       this.save(data);
     }
-  }
-
-  addLeaderboardEntry(name: string, level: number): SaveData {
-    const data = this.load();
-    const entry: LeaderboardEntry = {
-      name: name.slice(0, 16) || 'UNKNOWN',
-      level,
-      date: new Date().toISOString(),
-    };
-    data.leaderboard.push(entry);
-    data.leaderboard.sort((a, b) => {
-      if (b.level !== a.level) return b.level - a.level;
-      return b.date.localeCompare(a.date);
-    });
-    data.leaderboard = data.leaderboard.slice(0, 10);
-    this.save(data);
-    return data;
   }
 }

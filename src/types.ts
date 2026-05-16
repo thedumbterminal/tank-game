@@ -48,7 +48,6 @@ export interface LeaderboardEntry {
 
 export interface SaveData {
   lastCompletedLevel: number;
-  leaderboard: LeaderboardEntry[];
 }
 
 export enum TankTypeName {

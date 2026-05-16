@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+## [1.14.0] - 2026-05-16
+
+### Added
+
+- Firebase Firestore server-side leaderboard: all players now share the same global leaderboard
+- `FirebaseService` class wrapping Firestore reads/writes with graceful no-op fallback when unconfigured
+- Loading indicator on the leaderboard screen while fetching from Firestore
+- `firestore.rules` with public read, validated create (name/level/timestamp), no update or delete
+- `src/vite-env.d.ts` for TypeScript declarations of `VITE_FIREBASE_*` environment variables
+- `.env.example` documenting required Firebase config keys
+
+### Changed
+
+- Leaderboard is now stored in Firestore instead of `localStorage`; `localStorage` retains only level progress
+- `SaveData` interface simplified to `{ lastCompletedLevel: number }` (leaderboard field removed)
+- `SaveManager.addLeaderboardEntry()` removed; leaderboard writes handled by `FirebaseService`
+- `submitName()` in `Game` is now async: writes to Firestore then fetches updated leaderboard
+- Leaderboard from main menu now fetches live from Firestore with async loading state
+- GitHub Actions build step now receives Firebase config from repository secrets
+
 ## [1.13.0] - 2026-05-16
 
 ### Added
