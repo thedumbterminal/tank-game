@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+## [1.13.0] - 2026-05-16
+
+### Added
+
+- Level progression: defeating the bot advances the player to the next numbered level
+- Level indicator displayed in the HUD during gameplay
+- Main menu screen on game start with New Game, Continue, and Leaderboard options
+- Continue option restores the player to their last successfully completed level
+- Level complete screen shown after each victory before advancing
+- Bot difficulty scales with level: reduced aim jitter, faster decisions, tighter fire threshold, and increased health
+- `LevelManager` class with difficulty formula and level tracking
+- `SaveManager` class for `localStorage` persistence of level progress and leaderboard
+- Leaderboard: top 10 entries (name + level reached) persisted to `localStorage`
+- Name entry overlay (HTML input) shown when player loses, for leaderboard submission
+- Leaderboard screen accessible from main menu
+- 31 new unit tests for `LevelManager` and `SaveManager` (16 + 15)
+
 ## [1.12.0] - 2026-02-16
 
 ### Changed

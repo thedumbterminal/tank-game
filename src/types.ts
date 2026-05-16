@@ -22,9 +22,33 @@ export interface GameConfig {
 }
 
 export enum GameState {
+  MainMenu = 'mainmenu',
   TankSelect = 'tankselect',
   Playing = 'playing',
+  LevelComplete = 'levelcomplete',
+  NameEntry = 'nameentry',
+  Leaderboard = 'leaderboard',
   GameOver = 'gameover',
+}
+
+export interface LevelConfig {
+  level: number;
+  botJitter: number;
+  botActionInterval: number;
+  botAngleThreshold: number;
+  botPowerThreshold: number;
+  botHealthMultiplier: number;
+}
+
+export interface LeaderboardEntry {
+  name: string;
+  level: number;
+  date: string;
+}
+
+export interface SaveData {
+  lastCompletedLevel: number;
+  leaderboard: LeaderboardEntry[];
 }
 
 export enum TankTypeName {

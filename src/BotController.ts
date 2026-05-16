@@ -1,15 +1,25 @@
 import { Tank } from './Tank';
-import { GameConfig } from './types';
+import { GameConfig, LevelConfig } from './types';
 
 export class BotController {
   private readonly config: GameConfig;
   private actionTimer: number = 0;
-  private readonly actionInterval: number = 0.5;
+  private actionInterval: number = 0.5;
   private moveTimeRemaining: number = 0;
   private moveDirection: number = 0;
+  private jitter: number = 0.08;
+  private angleThreshold: number = 0.15;
+  private powerThreshold: number = 40;
 
   constructor(config: GameConfig) {
     this.config = config;
+  }
+
+  setDifficulty(levelConfig: LevelConfig): void {
+    this.actionInterval = levelConfig.botActionInterval;
+    this.jitter = levelConfig.botJitter;
+    this.angleThreshold = levelConfig.botAngleThreshold;
+    this.powerThreshold = levelConfig.botPowerThreshold;
   }
 
   /** Called at the start of each bot turn to reset movement phase. */
@@ -46,7 +56,7 @@ export class BotController {
 
     // Adjust angle toward ideal with some randomness
     const angleDiff = idealAngle - botTank.angle;
-    const jitter = (Math.random() - 0.5) * 0.08;
+    const jitter = (Math.random() - 0.5) * this.jitter;
     botTank.adjustAngle(angleDiff * 0.3 + jitter);
 
     // Adjust power based on distance
@@ -58,7 +68,7 @@ export class BotController {
     botTank.adjustPower(powerDiff * 0.3 + (Math.random() - 0.5) * 20);
 
     // Fire when angle is roughly correct
-    if (Math.abs(angleDiff) < 0.15 && Math.abs(powerDiff) < 40) {
+    if (Math.abs(angleDiff) < this.angleThreshold && Math.abs(powerDiff) < this.powerThreshold) {
       return true; // Signal to fire
     }
 
