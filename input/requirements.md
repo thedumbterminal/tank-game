@@ -4,6 +4,7 @@
 * You win the game by destroying the other tank.
 * Game will be a side on, fixed screen 2D view.
 * The terrain will be randomly generated to include trenches and hills.
+* Each time the player defeats the enemy tank, they are moved on to the next level.
 
 ## Tech
 * Game will use the latest stable node.js version and set in the .nvmrc file.
@@ -14,6 +15,19 @@
 * Create unit tests to ensure that all requirements work correctly.
 * Create regression tests for all bugs found.
 * Compatible with a phone's touchscreen and desktop.
+
+## Levels
+* Are numbered.
+* The enemy tanks get harder each level.
+* The player can continue a previous game at the last level they successfully completed, or they can start a new game.
+* There is a leaderboard of which player got to the higest level.
+
+## Leaderboard
+
+* Once a player has died they can enter their name.
+* The attained level is recorded.
+* The date is also recored.
+* The leaderboard is server side so all players can see the same leaderboard.
 
 ## Player tanks
 

@@ -21,7 +21,7 @@ npm run dev
 
 Browse to:
 
-http://localhost:5173/
+http://localhost:8080/
 
 ## Development
 

@@ -1,4 +1,4 @@
-import { GameConfig, PlayerSide, TankTypeName, TANK_TYPES } from './types';
+import { GameConfig, PlayerSide, TankTypeName, TANK_TYPES, LeaderboardEntry } from './types';
 import { Tank } from './Tank';
 import { Bullet } from './Bullet';
 import { Terrain } from './Terrain';
@@ -20,12 +20,12 @@ export class Renderer {
     this.ctx.clearRect(0, 0, this.config.canvasWidth, this.config.canvasHeight);
   }
 
-  renderScene(tanks: Tank[], bullets: Bullet[], activeTankIndex: number): void {
+  renderScene(tanks: Tank[], bullets: Bullet[], activeTankIndex: number, currentLevel: number = 1): void {
     this.clear();
     this.terrain.render(this.ctx);
     tanks.forEach((tank, i) => this.renderTank(tank, i === activeTankIndex));
     bullets.forEach((bullet) => this.renderBullet(bullet));
-    this.renderHUD(tanks);
+    this.renderHUD(tanks, currentLevel);
     this.renderAimReticle(tanks[activeTankIndex]);
   }
 
@@ -321,8 +321,15 @@ export class Renderer {
     ctx.fill();
   }
 
-  private renderHUD(tanks: Tank[]): void {
+  private renderHUD(tanks: Tank[], currentLevel: number = 1): void {
     const ctx = this.ctx;
+
+    // Level indicator — centre top
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 14px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`LEVEL ${currentLevel}`, this.config.canvasWidth / 2, 25);
+    ctx.textAlign = 'start';
 
     tanks.forEach((tank, i) => {
       const hudX = i === 0 ? 20 : this.config.canvasWidth - 220;
@@ -535,28 +542,177 @@ export class Renderer {
     ctx.textAlign = 'start';
   }
 
-  renderGameOver(winnerIndex: number): void {
+  renderGameOver(_winnerIndex: number): void {
+    // Legacy — now redirects to leaderboard display. Kept for API compatibility.
+    this.renderLeaderboard([], false);
+  }
+
+  renderMainMenu(options: string[], selectedIndex: number, hasSave: boolean, continueLevel: number): void {
     const ctx = this.ctx;
+    const { canvasWidth, canvasHeight } = this.config;
 
-    // Overlay
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    ctx.fillRect(0, 0, this.config.canvasWidth, this.config.canvasHeight);
+    ctx.fillStyle = '#111';
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-    // Winner text
-    const label = winnerIndex === 0 ? 'PLAYER 1' : 'PLAYER 2';
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 52px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('TANK GAME', canvasWidth / 2, canvasHeight / 2 - 120);
+
+    if (hasSave) {
+      ctx.fillStyle = '#888';
+      ctx.font = '14px monospace';
+      ctx.fillText(`Continue from Level ${continueLevel}`, canvasWidth / 2, canvasHeight / 2 - 80);
+    }
+
+    const itemH = 60;
+    const startY = canvasHeight / 2 - (options.length * itemH) / 2;
+
+    options.forEach((option, i) => {
+      const itemY = startY + i * itemH;
+      const isSelected = i === selectedIndex;
+
+      ctx.fillStyle = isSelected ? '#FFD700' : '#AAA';
+      ctx.font = isSelected ? 'bold 28px monospace' : '24px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(isSelected ? `▶ ${option}` : option, canvasWidth / 2, itemY + 36);
+    });
+
+    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const hasPointer = window.matchMedia('(pointer: fine)').matches;
+    ctx.fillStyle = '#555';
+    ctx.font = '13px monospace';
+    ctx.textAlign = 'center';
+    if (hasTouch && !hasPointer) {
+      ctx.fillText('Tap to select', canvasWidth / 2, canvasHeight - 30);
+    } else {
+      ctx.fillText('W/S or Arrow Keys to navigate  |  Space/Enter to select', canvasWidth / 2, canvasHeight - 30);
+    }
+    ctx.textAlign = 'start';
+  }
+
+  renderLevelComplete(level: number): void {
+    const ctx = this.ctx;
+    const { canvasWidth, canvasHeight } = this.config;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
     ctx.fillStyle = '#FFD700';
     ctx.font = 'bold 48px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(`${label} WINS!`, this.config.canvasWidth / 2, this.config.canvasHeight / 2 - 20);
+    ctx.fillText(`LEVEL ${level} COMPLETE!`, canvasWidth / 2, canvasHeight / 2 - 30);
 
-    // Restart hint - show tap if touch-capable
-    ctx.fillStyle = '#FFF';
-    ctx.font = '18px monospace';
+    ctx.fillStyle = '#4ADE80';
+    ctx.font = '22px monospace';
+    ctx.fillText(`Advancing to Level ${level + 1}`, canvasWidth / 2, canvasHeight / 2 + 20);
+
     const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    ctx.fillStyle = '#FFF';
+    ctx.font = '16px monospace';
     if (hasTouch) {
-      ctx.fillText('Tap or press R to restart', this.config.canvasWidth / 2, this.config.canvasHeight / 2 + 30);
+      ctx.fillText('Tap or press Space/Enter to continue', canvasWidth / 2, canvasHeight / 2 + 70);
     } else {
-      ctx.fillText('Press R to restart', this.config.canvasWidth / 2, this.config.canvasHeight / 2 + 30);
+      ctx.fillText('Press Space or Enter to continue', canvasWidth / 2, canvasHeight / 2 + 70);
+    }
+    ctx.textAlign = 'start';
+  }
+
+  renderNameEntryPrompt(): void {
+    const ctx = this.ctx;
+    const { canvasWidth, canvasHeight } = this.config;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    ctx.fillStyle = '#EF4444';
+    ctx.font = 'bold 40px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('DEFEATED!', canvasWidth / 2, canvasHeight / 2 - 60);
+
+    ctx.fillStyle = '#FFF';
+    ctx.font = '20px monospace';
+    ctx.fillText('Enter your name for the leaderboard:', canvasWidth / 2, canvasHeight / 2 - 10);
+
+    ctx.fillStyle = '#888';
+    ctx.font = '14px monospace';
+    ctx.fillText('(type and press Enter)', canvasWidth / 2, canvasHeight / 2 + 60);
+
+    ctx.textAlign = 'start';
+  }
+
+  renderLeaderboard(entries: LeaderboardEntry[], fromMainMenu: boolean, loading: boolean = false): void {
+    const ctx = this.ctx;
+    const { canvasWidth, canvasHeight } = this.config;
+
+    ctx.fillStyle = '#111';
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 36px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('LEADERBOARD', canvasWidth / 2, 60);
+
+    if (loading) {
+      ctx.fillStyle = '#FFD700';
+      ctx.font = 'bold 18px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('Fetching leaderboard...', canvasWidth / 2, canvasHeight / 2);
+    } else if (entries.length === 0) {
+      ctx.fillStyle = '#555';
+      ctx.font = '18px monospace';
+      ctx.fillText('No entries yet — play to get on the board!', canvasWidth / 2, canvasHeight / 2);
+    } else {
+      const tableW = 500;
+      const tableX = (canvasWidth - tableW) / 2;
+      const rowH = 32;
+      const startY = 100;
+
+      // Header
+      ctx.fillStyle = '#333';
+      ctx.fillRect(tableX, startY, tableW, rowH);
+      ctx.fillStyle = '#FFD700';
+      ctx.font = 'bold 13px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('#', tableX + 10, startY + 21);
+      ctx.fillText('NAME', tableX + 40, startY + 21);
+      ctx.textAlign = 'right';
+      ctx.fillText('LEVEL', tableX + tableW - 10, startY + 21);
+      ctx.textAlign = 'start';
+
+      entries.slice(0, 10).forEach((entry, i) => {
+        const ry = startY + rowH + i * rowH;
+
+        ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.04)' : 'transparent';
+        ctx.fillRect(tableX, ry, tableW, rowH);
+
+        const rankColor = i === 0 ? '#FFD700' : i === 1 ? '#C0C0C0' : i === 2 ? '#CD7F32' : '#AAA';
+        ctx.fillStyle = rankColor;
+        ctx.font = i < 3 ? 'bold 13px monospace' : '13px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(`${i + 1}`, tableX + 10, ry + 21);
+        ctx.fillText(entry.name.slice(0, 16), tableX + 40, ry + 21);
+        ctx.textAlign = 'right';
+        ctx.fillText(`${entry.level}`, tableX + tableW - 10, ry + 21);
+        ctx.textAlign = 'start';
+
+        ctx.strokeStyle = '#222';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(tableX, ry + rowH);
+        ctx.lineTo(tableX + tableW, ry + rowH);
+        ctx.stroke();
+      });
+    }
+
+    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    ctx.fillStyle = '#555';
+    ctx.font = '14px monospace';
+    ctx.textAlign = 'center';
+    if (hasTouch) {
+      ctx.fillText(fromMainMenu ? 'Tap to return' : 'Tap to return to menu', canvasWidth / 2, canvasHeight - 30);
+    } else {
+      ctx.fillText('Press R to return to menu', canvasWidth / 2, canvasHeight - 30);
     }
     ctx.textAlign = 'start';
   }

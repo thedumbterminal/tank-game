@@ -1,10 +1,13 @@
-import { GameConfig, GameState, PlayerSide, TankTypeName, Vector2, DEFAULT_CONFIG } from './types';
+import { GameConfig, GameState, PlayerSide, TankTypeName, Vector2, DEFAULT_CONFIG, LeaderboardEntry } from './types';
 import { Tank } from './Tank';
 import { Bullet } from './Bullet';
 import { Terrain } from './Terrain';
 import { Renderer } from './Renderer';
 import { InputHandler } from './InputHandler';
 import { BotController } from './BotController';
+import { LevelManager } from './LevelManager';
+import { SaveManager } from './SaveManager';
+import { FirebaseService } from './FirebaseService';
 
 interface QueuedBullet {
   position: Vector2;
@@ -19,13 +22,16 @@ export class Game {
   private readonly input: InputHandler;
   private readonly botController: BotController;
   private readonly ctx: CanvasRenderingContext2D;
+  private readonly levelManager: LevelManager;
+  private readonly saveManager: SaveManager;
+  private readonly firebaseService: FirebaseService;
 
   private renderer!: Renderer;
   private terrain!: Terrain;
   private tanks: Tank[] = [];
   private bullets: Bullet[] = [];
   private bulletQueue: QueuedBullet[] = []; // For sequential firing
-  private state: GameState = GameState.TankSelect;
+  private state: GameState = GameState.MainMenu;
   private activeTankIndex: number = 0;
   private winnerIndex: number = -1;
   private isBotGame: boolean = true;
@@ -37,6 +43,15 @@ export class Game {
   private readonly tankTypeOptions = [TankTypeName.GauAvenger, TankTypeName.Abrams, TankTypeName.Maus];
   private selectedTankIndex: number = 1; // Default to Abrams
   private playerTankType: TankTypeName = TankTypeName.Abrams;
+
+  // Main menu state
+  private selectedMenuIndex: number = 0;
+
+  // Leaderboard / name entry state
+  private currentLeaderboard: LeaderboardEntry[] = [];
+  private leaderboardLoading: boolean = false;
+  private pendingLeaderboardLevel: number = 1;
+  private nameInputEl: HTMLInputElement | null = null;
 
   private readonly canvas: HTMLCanvasElement;
 
@@ -52,6 +67,9 @@ export class Game {
 
     this.input = new InputHandler();
     this.botController = new BotController(config);
+    this.levelManager = new LevelManager();
+    this.saveManager = new SaveManager();
+    this.firebaseService = new FirebaseService();
 
     this.terrain = new Terrain(this.config);
     this.renderer = new Renderer(this.ctx, this.config, this.terrain);
@@ -70,14 +88,20 @@ export class Game {
     };
   }
 
-  /** Handle canvas taps for tank selection and game over restart */
+  /** Handle canvas taps for all screen states */
   private initCanvasTouch(): void {
     const handleTap = (x: number, y: number) => {
       if (this.state === GameState.TankSelect) {
         this.handleTankSelectTap(x, y);
-      } else if (this.state === GameState.GameOver) {
-        // Tap anywhere to restart
-        this.input.simulatePress('r');
+      } else if (this.state === GameState.GameOver || this.state === GameState.Leaderboard) {
+        this.state = GameState.MainMenu;
+        this.selectedMenuIndex = 0;
+      } else if (this.state === GameState.MainMenu) {
+        this.handleMainMenuTap(x, y);
+      } else if (this.state === GameState.LevelComplete) {
+        this.levelManager.advance();
+        this.state = GameState.TankSelect;
+        this.selectedTankIndex = 1;
       }
     };
 
@@ -95,6 +119,63 @@ export class Game {
     }, { passive: false });
   }
 
+  private handleMainMenuTap(x: number, y: number): void {
+    const options = this.getMenuOptions();
+    const itemH = 60;
+    const startY = this.config.canvasHeight / 2 - (options.length * itemH) / 2;
+    for (let i = 0; i < options.length; i++) {
+      const itemY = startY + i * itemH;
+      if (y >= itemY - 10 && y <= itemY + itemH - 10) {
+        this.selectMenuOption(i);
+        return;
+      }
+    }
+  }
+
+  private getMenuOptions(): string[] {
+    const save = this.saveManager.load();
+    const options: string[] = ['New Game'];
+    if (save.lastCompletedLevel > 0) {
+      options.push(`Continue (Level ${save.lastCompletedLevel + 1})`);
+    }
+    options.push('Leaderboard');
+    return options;
+  }
+
+  private selectMenuOption(index: number): void {
+    const save = this.saveManager.load();
+    const hasSave = save.lastCompletedLevel > 0;
+
+    let action: 'new' | 'continue' | 'leaderboard';
+    if (!hasSave) {
+      // Options: [0]=New Game, [1]=Leaderboard
+      action = index === 0 ? 'new' : 'leaderboard';
+    } else {
+      // Options: [0]=New Game, [1]=Continue, [2]=Leaderboard
+      if (index === 0) action = 'new';
+      else if (index === 1) action = 'continue';
+      else action = 'leaderboard';
+    }
+
+    if (action === 'new') {
+      this.levelManager.reset();
+      this.state = GameState.TankSelect;
+      this.selectedTankIndex = 1;
+    } else if (action === 'continue') {
+      this.levelManager.setLevel(save.lastCompletedLevel + 1);
+      this.state = GameState.TankSelect;
+      this.selectedTankIndex = 1;
+    } else {
+      this.currentLeaderboard = [];
+      this.leaderboardLoading = true;
+      this.state = GameState.Leaderboard;
+      this.firebaseService.fetchLeaderboard()
+        .then((entries) => { this.currentLeaderboard = entries; })
+        .catch(() => { /* graceful fallback — leaderboard stays empty */ })
+        .finally(() => { this.leaderboardLoading = false; });
+    }
+  }
+
   private handleTankSelectTap(x: number, y: number): void {
     const cardWidth = 240;
     const cardHeight = 270;
@@ -107,7 +188,6 @@ export class Game {
       const cardX = startX + i * (cardWidth + gap);
       if (x >= cardX && x <= cardX + cardWidth && y >= cardY && y <= cardY + cardHeight) {
         if (this.selectedTankIndex === i) {
-          // Double-tap same card = confirm
           this.playerTankType = this.tankTypeOptions[this.selectedTankIndex];
           this.initMatch();
         } else {
@@ -122,13 +202,16 @@ export class Game {
     this.terrain = new Terrain(this.config);
     this.renderer = new Renderer(this.ctx, this.config, this.terrain);
 
-    // Bot picks a random tank type
+    const levelConfig = this.levelManager.getLevelConfig(this.levelManager.currentLevel);
+    this.botController.setDifficulty(levelConfig);
+
     const botType = this.tankTypeOptions[Math.floor(Math.random() * this.tankTypeOptions.length)];
 
-    this.tanks = [
-      new Tank(PlayerSide.Left, this.config, this.playerTankType),
-      new Tank(PlayerSide.Right, this.config, botType),
-    ];
+    const playerTank = new Tank(PlayerSide.Left, this.config, this.playerTankType);
+    const botTank = new Tank(PlayerSide.Right, this.config, botType);
+    botTank.health = Math.round(this.config.tankHealth * levelConfig.botHealthMultiplier);
+
+    this.tanks = [playerTank, botTank];
 
     for (const tank of this.tanks) {
       tank.snapToTerrain(this.terrain.getHeightAt(tank.position.x));
@@ -142,7 +225,6 @@ export class Game {
     this.shotFired = false;
     this.turnCooldown = 0;
 
-    // Notify first tank of turn start
     this.tanks[0].onTurnStart();
   }
 
@@ -163,15 +245,34 @@ export class Game {
   }
 
   private update(deltaTime: number): void {
+    if (this.state === GameState.MainMenu) {
+      this.updateMainMenu();
+      return;
+    }
+
     if (this.state === GameState.TankSelect) {
       this.updateTankSelect();
       return;
     }
 
-    if (this.state === GameState.GameOver) {
-      if (this.input.wasPressed('r') || this.input.wasPressed('R')) {
+    if (this.state === GameState.LevelComplete) {
+      if (this.input.wasPressed(' ') || this.input.wasPressed('Enter')) {
+        this.levelManager.advance();
         this.state = GameState.TankSelect;
         this.selectedTankIndex = 1;
+      }
+      return;
+    }
+
+    if (this.state === GameState.NameEntry) {
+      // Name entry is handled via HTML input element
+      return;
+    }
+
+    if (this.state === GameState.GameOver || this.state === GameState.Leaderboard) {
+      if (this.input.wasPressed('r') || this.input.wasPressed('R')) {
+        this.state = GameState.MainMenu;
+        this.selectedMenuIndex = 0;
       }
       return;
     }
@@ -180,7 +281,6 @@ export class Game {
     this.updateBullets(deltaTime);
     this.checkCollisions();
 
-    // Handle turn cooldown after a shot
     if (this.turnCooldown > 0) {
       this.turnCooldown -= deltaTime;
       if (this.turnCooldown <= 0 && !this.hasBulletsInFlight()) {
@@ -199,7 +299,6 @@ export class Game {
     // Bot turn
     if (this.isBotGame && this.activeTankIndex === 1) {
       if (!activeTank.canFire) {
-        // MAUS cooldown: skip turn
         this.switchTurn();
         return;
       }
@@ -215,8 +314,24 @@ export class Game {
       return;
     }
 
-    // Player controls
     this.handlePlayerInput(activeTank, deltaTime);
+  }
+
+  private updateMainMenu(): void {
+    const options = this.getMenuOptions();
+    if (this.input.wasPressed('a') || this.input.wasPressed('A') ||
+        this.input.wasPressed('ArrowLeft') || this.input.wasPressed('ArrowUp') ||
+        this.input.wasPressed('w') || this.input.wasPressed('W')) {
+      this.selectedMenuIndex = (this.selectedMenuIndex - 1 + options.length) % options.length;
+    }
+    if (this.input.wasPressed('d') || this.input.wasPressed('D') ||
+        this.input.wasPressed('ArrowRight') || this.input.wasPressed('ArrowDown') ||
+        this.input.wasPressed('s') || this.input.wasPressed('S')) {
+      this.selectedMenuIndex = (this.selectedMenuIndex + 1) % options.length;
+    }
+    if (this.input.wasPressed('Enter') || this.input.wasPressed(' ')) {
+      this.selectMenuOption(this.selectedMenuIndex);
+    }
   }
 
   private updateTankSelect(): void {
@@ -233,7 +348,6 @@ export class Game {
   }
 
   private handlePlayerInput(tank: Tank, deltaTime: number): void {
-    // Movement - locked after firing
     if (!this.shotFired) {
       if (this.input.isDown('a') || this.input.isDown('A') || this.input.isDown('ArrowLeft')) {
         tank.move(-1, deltaTime);
@@ -245,7 +359,6 @@ export class Game {
       }
     }
 
-    // Angle adjustment
     const angleSpeed = 1.5 * deltaTime;
     if (this.input.isDown('w') || this.input.isDown('W') || this.input.isDown('ArrowUp')) {
       tank.adjustAngle(angleSpeed);
@@ -254,7 +367,6 @@ export class Game {
       tank.adjustAngle(-angleSpeed);
     }
 
-    // Power adjustment
     const powerSpeed = 200 * deltaTime;
     if (this.input.isDown('q') || this.input.isDown('Q')) {
       tank.adjustPower(-powerSpeed);
@@ -263,7 +375,6 @@ export class Game {
       tank.adjustPower(powerSpeed);
     }
 
-    // Fire - or end turn if reloading
     if (this.input.wasPressed(' ') && !this.shotFired) {
       if (tank.canFire) {
         this.fire(tank, this.activeTankIndex);
@@ -286,7 +397,6 @@ export class Game {
       let vy = baseVelocity.y;
 
       if (bulletsPerShot > 1) {
-        // Spread bullets in a fan pattern
         const spreadAngle = (i / (bulletsPerShot - 1) - 0.5) * spread;
         const cos = Math.cos(spreadAngle);
         const sin = Math.sin(spreadAngle);
@@ -297,7 +407,6 @@ export class Game {
       }
 
       if (fireDelay > 0 && i > 0) {
-        // Queue bullet for delayed firing (sequential)
         this.bulletQueue.push({
           position: { x: turretEnd.x, y: turretEnd.y },
           velocity: { x: vx, y: vy },
@@ -306,7 +415,6 @@ export class Game {
           craterRadius,
         });
       } else {
-        // Fire immediately
         this.bullets.push(new Bullet(
           { x: turretEnd.x, y: turretEnd.y },
           { x: vx, y: vy },
@@ -332,10 +440,8 @@ export class Game {
       }
     }
 
-    // Remove fired bullets from queue
     this.bulletQueue = this.bulletQueue.filter((q) => q.delay > 0);
 
-    // Spawn the bullets
     for (const q of toFire) {
       this.bullets.push(new Bullet(
         q.position,
@@ -350,7 +456,6 @@ export class Game {
     const getHeight = (x: number) => this.terrain.getHeightAt(x);
     this.bullets.forEach((bullet) => bullet.update(deltaTime, getHeight));
 
-    // Create craters for bullets that hit terrain
     for (const bullet of this.bullets) {
       if (!bullet.active && bullet.hitTerrain) {
         this.terrain.createCrater(bullet.position.x);
@@ -374,14 +479,22 @@ export class Game {
         const hitRadius = this.config.tankWidth / 2;
 
         if (Math.abs(dx) < hitRadius && Math.abs(dy) < this.config.tankHeight) {
-          // Use damage from the firing tank's type
           const firingTank = this.tanks[bullet.owner];
           tank.takeDamage(firingTank.tankType.damage);
           bullet.active = false;
 
           if (!tank.alive) {
-            this.state = GameState.GameOver;
             this.winnerIndex = bullet.owner;
+            if (bullet.owner === 0) {
+              // Player wins
+              this.saveManager.saveCompletedLevel(this.levelManager.currentLevel);
+              this.state = GameState.LevelComplete;
+            } else {
+              // Bot wins — player loses
+              this.pendingLeaderboardLevel = this.levelManager.currentLevel;
+              this.state = GameState.NameEntry;
+              this.showNameInput();
+            }
           }
         }
       }
@@ -398,31 +511,122 @@ export class Game {
     this.shotFired = false;
     this.turnCooldown = 0;
 
-    // Notify bot controller when it's bot's turn
     if (this.isBotGame && this.activeTankIndex === 1) {
       this.botController.startTurn();
+    }
+  }
+
+  // ---- Name entry HTML overlay ----
+
+  private showNameInput(): void {
+    this.hideNameInput();
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 16;
+    input.placeholder = 'Enter your name';
+    input.id = 'tank-name-input';
+
+    const rect = this.canvas.getBoundingClientRect();
+    input.style.position = 'fixed';
+    input.style.left = `${rect.left + rect.width / 2 - 100}px`;
+    input.style.top = `${rect.top + rect.height / 2}px`;
+    input.style.width = '200px';
+    input.style.fontSize = '20px';
+    input.style.textAlign = 'center';
+    input.style.zIndex = '100';
+    input.style.padding = '6px';
+    input.style.border = '2px solid #FFD700';
+    input.style.background = '#111';
+    input.style.color = '#FFF';
+    input.style.borderRadius = '4px';
+    input.style.outline = 'none';
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') this.submitName(input.value.trim() || 'UNKNOWN');
+    });
+
+    document.body.appendChild(input);
+    this.nameInputEl = input;
+
+    setTimeout(() => input.focus(), 50);
+  }
+
+  private hideNameInput(): void {
+    if (this.nameInputEl) {
+      this.nameInputEl.remove();
+      this.nameInputEl = null;
+    }
+    const existing = document.getElementById('tank-name-input');
+    if (existing) existing.remove();
+  }
+
+  private async submitName(name: string): Promise<void> {
+    this.hideNameInput();
+    this.currentLeaderboard = [];
+    this.leaderboardLoading = true;
+    this.levelManager.reset();
+    this.state = GameState.GameOver;
+
+    try {
+      await this.firebaseService.submitEntry(name, this.pendingLeaderboardLevel);
+      this.currentLeaderboard = await this.firebaseService.fetchLeaderboard();
+    } catch (e) {
+      console.error('Leaderboard error:', e);
+    } finally {
+      this.leaderboardLoading = false;
     }
   }
 
   private render(): void {
     const touchControls = document.getElementById('touch-controls');
 
+    if (this.state === GameState.MainMenu) {
+      if (touchControls) touchControls.style.visibility = 'hidden';
+      const save = this.saveManager.load();
+      this.renderer.renderMainMenu(
+        this.getMenuOptions(),
+        this.selectedMenuIndex,
+        save.lastCompletedLevel > 0,
+        save.lastCompletedLevel + 1
+      );
+      return;
+    }
+
     if (this.state === GameState.TankSelect) {
-      // Hide touch controls on selection screen (tap directly on canvas)
       if (touchControls) touchControls.style.visibility = 'hidden';
       this.renderer.renderTankSelect(this.tankTypeOptions, this.selectedTankIndex);
       return;
     }
 
-    this.renderer.renderScene(this.tanks, this.bullets, this.activeTankIndex);
+    if (this.state === GameState.LevelComplete) {
+      if (touchControls) touchControls.style.visibility = 'hidden';
+      this.renderer.renderScene(this.tanks, this.bullets, this.activeTankIndex, this.levelManager.currentLevel);
+      this.renderer.renderLevelComplete(this.levelManager.currentLevel);
+      return;
+    }
+
+    if (this.state === GameState.NameEntry) {
+      if (touchControls) touchControls.style.visibility = 'hidden';
+      this.renderer.renderScene(this.tanks, this.bullets, this.activeTankIndex, this.levelManager.currentLevel);
+      this.renderer.renderNameEntryPrompt();
+      return;
+    }
 
     if (this.state === GameState.GameOver) {
-      // Hide touch controls so they don't block restart tap
       if (touchControls) touchControls.style.visibility = 'hidden';
-      this.renderer.renderGameOver(this.winnerIndex);
-    } else {
-      // Show touch controls during gameplay
-      if (touchControls) touchControls.style.visibility = '';
+      this.renderer.renderLeaderboard(this.currentLeaderboard, false, this.leaderboardLoading);
+      return;
     }
+
+    if (this.state === GameState.Leaderboard) {
+      if (touchControls) touchControls.style.visibility = 'hidden';
+      this.renderer.renderLeaderboard(this.currentLeaderboard, true, this.leaderboardLoading);
+      return;
+    }
+
+    // Playing state
+    this.renderer.renderScene(this.tanks, this.bullets, this.activeTankIndex, this.levelManager.currentLevel);
+    if (touchControls) touchControls.style.visibility = '';
   }
 }
