@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
+  initializeFirestore,
   getFirestore,
   Firestore,
   collection,
@@ -28,7 +29,13 @@ export class FirebaseService {
     if (!import.meta.env.VITE_FIREBASE_PROJECT_ID) return; // no-op mode
     try {
       const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-      this.db = getFirestore(app);
+      // initializeFirestore with long-polling fixes Safari CORS blocking of gRPC-Web streams.
+      // Falls back to getFirestore if already initialized (e.g. HMR hot reload).
+      try {
+        this.db = initializeFirestore(app, { experimentalForceLongPolling: true });
+      } catch {
+        this.db = getFirestore(app);
+      }
     } catch (e) {
       console.error('Firebase init failed:', e);
     }
