@@ -80,6 +80,26 @@ describe('FirebaseService (no-op mode)', () => {
     expect(entries[1].level).toBe(3);
   });
 
+  it('fetchLeaderboard deduplicates by name, keeping only the highest level per player', async () => {
+    vi.stubEnv('VITE_FIREBASE_PROJECT_ID', 'test-project');
+
+    // Alice appears twice — first occurrence (level 7) is higher; second (level 2) should be dropped
+    mockGetDocs.mockResolvedValueOnce({
+      docs: [
+        { id: '1', data: () => ({ name: 'Alice', level: 7, timestamp: { toDate: () => new Date('2026-01-01T00:00:00.000Z') } }) },
+        { id: '2', data: () => ({ name: 'Bob',   level: 5, timestamp: { toDate: () => new Date('2026-01-02T00:00:00.000Z') } }) },
+        { id: '3', data: () => ({ name: 'Alice', level: 2, timestamp: { toDate: () => new Date('2026-01-03T00:00:00.000Z') } }) },
+      ],
+    });
+
+    const svc = new FirebaseService();
+    const entries = await svc.fetchLeaderboard();
+
+    expect(entries).toHaveLength(2);
+    expect(entries[0]).toMatchObject({ name: 'Alice', level: 7 });
+    expect(entries[1]).toMatchObject({ name: 'Bob', level: 5 });
+  });
+
   it('submitEntry calls addDoc with correct payload', async () => {
     vi.stubEnv('VITE_FIREBASE_PROJECT_ID', 'test-project');
 

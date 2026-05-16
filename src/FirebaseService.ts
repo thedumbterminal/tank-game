@@ -60,18 +60,25 @@ export class FirebaseService {
       const q = query(
         collection(this.db, 'leaderboard'),
         orderBy('level', 'desc'),
-        limit(10)
+        limit(50)
       );
       const snapshot = await getDocs(q);
-      return snapshot.docs.map((doc) => {
+      const seen = new Set<string>();
+      const unique: import('./types').LeaderboardEntry[] = [];
+      for (const doc of snapshot.docs) {
         const d = doc.data();
+        const name = d['name'] as string;
+        if (seen.has(name)) continue;
+        seen.add(name);
         const ts = d['timestamp'] as Timestamp | undefined;
-        return {
-          name:  d['name'] as string,
+        unique.push({
+          name,
           level: d['level'] as number,
           date:  ts ? ts.toDate().toISOString() : new Date().toISOString(),
-        };
-      });
+        });
+        if (unique.length === 10) break;
+      }
+      return unique;
     } catch (e) {
       console.error('Leaderboard fetch failed:', e);
       return [];

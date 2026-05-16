@@ -663,10 +663,15 @@ export class Renderer {
       ctx.font = '18px monospace';
       ctx.fillText('No entries yet — play to get on the board!', canvasWidth / 2, canvasHeight / 2);
     } else {
-      const tableW = 500;
+      const tableW = 700;
       const tableX = (canvasWidth - tableW) / 2;
       const rowH = 32;
       const startY = 100;
+      // Column x positions
+      const colRank  = tableX + 10;
+      const colName  = tableX + 40;
+      const colLevel = tableX + 490;
+      const colDate  = tableX + tableW - 10;
 
       // Header
       ctx.fillStyle = '#333';
@@ -674,10 +679,11 @@ export class Renderer {
       ctx.fillStyle = '#FFD700';
       ctx.font = 'bold 13px monospace';
       ctx.textAlign = 'left';
-      ctx.fillText('#', tableX + 10, startY + 21);
-      ctx.fillText('NAME', tableX + 40, startY + 21);
+      ctx.fillText('#', colRank, startY + 21);
+      ctx.fillText('NAME', colName, startY + 21);
+      ctx.fillText('LVL', colLevel, startY + 21);
       ctx.textAlign = 'right';
-      ctx.fillText('LEVEL', tableX + tableW - 10, startY + 21);
+      ctx.fillText('DATE', colDate, startY + 21);
       ctx.textAlign = 'start';
 
       entries.slice(0, 10).forEach((entry, i) => {
@@ -690,10 +696,11 @@ export class Renderer {
         ctx.fillStyle = rankColor;
         ctx.font = i < 3 ? 'bold 13px monospace' : '13px monospace';
         ctx.textAlign = 'left';
-        ctx.fillText(`${i + 1}`, tableX + 10, ry + 21);
-        ctx.fillText(entry.name.slice(0, 16), tableX + 40, ry + 21);
+        ctx.fillText(`${i + 1}`, colRank, ry + 21);
+        ctx.fillText(entry.name.slice(0, 16), colName, ry + 21);
+        ctx.fillText(`${entry.level}`, colLevel, ry + 21);
         ctx.textAlign = 'right';
-        ctx.fillText(`${entry.level}`, tableX + tableW - 10, ry + 21);
+        ctx.fillText(entry.date ? entry.date.substring(0, 10) : '', colDate, ry + 21);
         ctx.textAlign = 'start';
 
         ctx.strokeStyle = '#222';
